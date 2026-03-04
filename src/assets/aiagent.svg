@@ -1,0 +1,10 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="0.5" y="0.5" width="19" height="19" rx="9.5" fill="#18181B"/>
+<rect x="0.5" y="0.5" width="19" height="19" rx="9.5" stroke="#2B7FFF"/>
+<path d="M10 8V6H8" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M13 8H7C6.44772 8 6 8.44772 6 9V13C6 13.5523 6.44772 14 7 14H13C13.5523 14 14 13.5523 14 13V9C14 8.44772 13.5523 8 13 8Z" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M5 11H6" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M14 11H15" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M11.5 10.5V11.5" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M8.5 10.5V11.5" stroke="#51A1FF" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

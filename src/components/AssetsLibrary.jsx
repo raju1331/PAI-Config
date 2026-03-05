@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import AssetCategory from "./AssetCategory.jsx";
 import { ASSET_NODES } from "../data/assets.js";
 
-
 export default function AssetsLibrary() {
   const [search, setSearch] = useState("");
   const [openCategories, setOpenCategories] = useState({ OmniverseModels: true });
@@ -10,14 +9,12 @@ export default function AssetsLibrary() {
   const handleToggle = (id) =>
     setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  // Convert ASSET_NODES structure to categories format for rendering
   const categories = useMemo(() => {
     return Object.entries(ASSET_NODES).map(([categoryKey, categoryData]) => {
       const items = Object.values(categoryData.nodes).map((node) => ({
         id: node.id,
         name: node.label,
         label: node.label,
-        icon: "•", 
         description: node.description,
         category: node.category,
         allowedTargets: node.allowedTargets,
@@ -30,6 +27,7 @@ export default function AssetsLibrary() {
         id: categoryKey,
         label: categoryData.label,
         icon: categoryData.icon,
+        iconType: categoryData.iconType,
         color: categoryData.color,
         iconColor: categoryData.iconColor,
         items: items.filter((item) =>
@@ -41,9 +39,7 @@ export default function AssetsLibrary() {
 
   return (
     <aside className="sidebar">
-
       <div className="sidebar__header">
-      
         <div className="sidebar__search">
           <input
             className="sidebar__search-input"
@@ -56,7 +52,6 @@ export default function AssetsLibrary() {
         </div>
       </div>
 
-      {/* ── Scrollable category list ── */}
       <div className="sidebar__content">
         {categories.map((cat) => (
           <AssetCategory
@@ -73,7 +68,6 @@ export default function AssetsLibrary() {
           </p>
         )}
       </div>
-
     </aside>
   );
 }

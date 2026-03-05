@@ -1,8 +1,9 @@
 export const ASSET_NODES = {
   OmniverseModels: {
     label: "Omniverse Models",
-    icon: "🎯",
-    color: "#1a2a4a",
+    icon: "/src/assets/modelss.svg",
+    iconType: "img",
+    color: "#12121f",
     iconColor: "#4f8ef7",
     svgType: "svg1",
     nodes: {
@@ -29,9 +30,10 @@ export const ASSET_NODES = {
     },
   },
   Simulation: {
-    label: "Simulation",
-    icon: "⚙️",
-    color: "#1a2a1a",
+    label: "Sub-Templates",
+    icon: "/src/assets/subtemp.svg",
+    iconType: "img",
+    color: "#12121f",
     iconColor: "#48bb78",
     svgType: "svg2",
     nodes: {
@@ -45,7 +47,7 @@ export const ASSET_NODES = {
         maxOutgoing: 1,
         svgType: "svg2",
       },
-       plantsim: {
+      plantsim: {
         id: "plantsim",
         label: "Plant Simulation",
         category: "NODE_TYPES.SIMULATOR",
@@ -59,8 +61,9 @@ export const ASSET_NODES = {
   },
   AI_Agents: {
     label: "AI Agents",
-    icon: "🤖",
-    color: "#2a1a0d",
+    icon: "/src/assets/ai.svg",
+    iconType: "img",
+    color: "#12121f",
     iconColor: "#ed8936",
     svgType: "svg3",
     nodes: {
@@ -78,8 +81,9 @@ export const ASSET_NODES = {
   },
   Connectors: {
     label: "Connectors",
-    icon: "🔗",
-    color: "#2a0d0d",
+    icon: "/src/assets/Link.svg",
+    iconType: "img",
+    color: "#12121f",
     iconColor: "#fc8181",
     svgType: "svg4",
     nodes: {
@@ -98,6 +102,4 @@ export const ASSET_NODES = {
 };
 
 export const INITIAL_NODES = [];
-
 export const INITIAL_CONNECTIONS = [];
-

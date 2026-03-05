@@ -1,0 +1,103 @@
+export const ASSET_NODES = {
+  OmniverseModels: {
+    label: "Omniverse Models",
+    icon: "🎯",
+    color: "#1a2a4a",
+    iconColor: "#4f8ef7",
+    svgType: "svg1",
+    nodes: {
+      nvidia_kit_app: {
+        id: "nvidia_kit_app",
+        label: "Nvidia Kit App",
+        category: "NODE_TYPES.MODEL",
+        description: "Tribal knowledge & business rules",
+        allowedTargets: ["anylogic", "plantsim", "mqtt"],
+        requiredBefore: [],
+        maxOutgoing: 3,
+        svgType: "svg1",
+      },
+      warehouse_layout_generator_kit_app: {
+        id: "warehouse_layout_generator_kit_app",
+        label: "Warehouse Layout Designer",
+        category: "NODE_TYPES.FUNCTIONAL_BLOCK",
+        description: "Designs warehouse spatial layout",
+        allowedTargets: ["anylogic", "plantsim", "mqtt"],
+        requiredBefore: [],
+        maxOutgoing: 3,
+        svgType: "svg1",
+      },
+    },
+  },
+  Simulation: {
+    label: "Simulation",
+    icon: "⚙️",
+    color: "#1a2a1a",
+    iconColor: "#48bb78",
+    svgType: "svg2",
+    nodes: {
+      anylogic: {
+        id: "anylogic",
+        label: "Anylogic Simulation",
+        category: "NODE_TYPES.SIMULATOR",
+        description: "Simulation engines",
+        allowedTargets: ["repository"],
+        requiredBefore: ["mqtt", "nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 1,
+        svgType: "svg2",
+      },
+       plantsim: {
+        id: "plantsim",
+        label: "Plant Simulation",
+        category: "NODE_TYPES.SIMULATOR",
+        description: "Simulation engines",
+        allowedTargets: ["repository"],
+        requiredBefore: ["mqtt", "nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 1,
+        svgType: "svg2",
+      },
+    },
+  },
+  AI_Agents: {
+    label: "AI Agents",
+    icon: "🤖",
+    color: "#2a1a0d",
+    iconColor: "#ed8936",
+    svgType: "svg3",
+    nodes: {
+      claude_opus_4_6: {
+        id: "claude_opus_4_6",
+        label: "Claude Opus 4.6",
+        category: "NODE_TYPES.AI_AGENT",
+        description: "AI-driven layout optimisation agent",
+        allowedTargets: ["nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        requiredBefore: [],
+        maxOutgoing: 2,
+        svgType: "svg3",
+      },
+    },
+  },
+  Connectors: {
+    label: "Connectors",
+    icon: "🔗",
+    color: "#2a0d0d",
+    iconColor: "#fc8181",
+    svgType: "svg4",
+    nodes: {
+      mqtt: {
+        id: "mqtt",
+        label: "MQTT",
+        category: "NODE_TYPES.CONNECTOR",
+        description: "Application Connector",
+        allowedTargets: ["anylogic", "plantsim"],
+        requiredBefore: ["nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 2,
+        svgType: "svg4",
+      },
+    },
+  },
+};
+
+export const INITIAL_NODES = [];
+
+export const INITIAL_CONNECTIONS = [];
+

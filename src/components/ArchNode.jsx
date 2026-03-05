@@ -1,37 +1,69 @@
+import { useState } from "react";
+import SVGNode from "./SVGNode.jsx";
+
 /**
  * ArchNode
- * A single draggable node on the architecture canvas.
+ * A single draggable node on the architecture canvas using SVG shapes.
  *
  * Props:
- *  - node        { id, title, subtitle, icon, color, iconColor, x, y, status }
+ *  - node        { id, title, color, iconColor, x, y, svgType, ... }
  *  - isSelected  bool
  *  - onMouseDown (e, nodeId) => void
+ *  - onDelete    (nodeId) => void
+ *  - onConnect   (nodeId) => void
  */
-export default function ArchNode({ node, isSelected, onMouseDown }) {
+export default function ArchNode({ node, isSelected, onMouseDown, onDelete, onConnect }) {
+  const [showActions, setShowActions] = useState(false);
+console.log("Rendering ArchNode:", node);
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    onDelete?.(node.id);
+  };
+
+  const handleConnectClick = (e) => {
+    e.stopPropagation();
+    onConnect?.(node.id);
+  };
+
   return (
     <div
-      className={`arch-node ${isSelected ? "arch-node--selected" : ""}`}
+      className={`arch-node arch-node--svg ${isSelected ? "arch-node--selected" : ""}`}
       style={{ left: node.x, top: node.y }}
       onMouseDown={(e) => onMouseDown(e, node.id)}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
     >
-      <div className="arch-node__header">
-        <div
-          className="arch-node__icon"
-          style={{ background: node.color, color: node.iconColor }}
+      {/* Delete button - shows on hover */}
+      {showActions && (
+        <button
+          className="arch-node__delete"
+          title="Delete node"
+          onClick={handleDeleteClick}
+          aria-label="Delete node"
         >
-          {node.icon}
-        </div>
+          ✕
+        </button>
+      )}
 
-        <div>
-          <div className="arch-node__title">{node.title}</div>
-          <div className="arch-node__subtitle">{node.subtitle}</div>
-        </div>
-      </div>
+      {/* Connect button - shows on hover */}
+      {showActions && (
+        <button
+          className="arch-node__connect"
+          title="Connect nodes"
+          onClick={handleConnectClick}
+          aria-label="Connect to another node"
+        >
+          ◉
+        </button>
+      )}
 
-      <div className="arch-node__status">
-        <div className="arch-node__status-dot" />
-        <span className="arch-node__status-text">{node.status}</span>
-      </div>
+      {/* SVG Node Rendering */}
+      <SVGNode
+        svgType={node.svgType}
+        label={node.title}
+        color={node.color}
+        iconColor={node.iconColor}
+      />
     </div>
   );
 }

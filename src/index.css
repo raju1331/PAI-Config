@@ -13,9 +13,6 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-* {
-  font-family: Arial, sans-serif;
-}
 
 a {
   font-weight: 500;

@@ -384,15 +384,16 @@ body {
 /* ─── Architecture Node ───────────────────────────────────────────────────── */
 .arch-node {
   position: absolute;
-  background: #161b27;
-  border: 1px solid #2a3148;
+  background: transparent;
+  border: 2px solid transparent;
   border-radius: 10px;
-  padding: 14px 18px;
-  min-width: 150px;
+  padding: 8px;
   cursor: move;
   user-select: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-width: auto;
+  width: auto;
 }
 
 .arch-node:hover {
@@ -403,6 +404,29 @@ body {
 .arch-node--selected {
   border-color: #4f8ef7;
   box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.2);
+}
+
+.arch-node--svg {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: auto;
+}
+
+.arch-node--svg:hover {
+  border: none;
+  box-shadow: none;
+}
+
+.arch-node--svg.arch-node--selected {
+  border: 2px solid #4f8ef7;
+  border-radius: 10px;
+  padding: 8px;
 }
 
 .arch-node__header {
@@ -454,6 +478,62 @@ body {
 .arch-node__status-text {
   font-size: 10px;
   color: #48bb78;
+}
+
+.arch-node__delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 24px;
+  height: 24px;
+  background: #fc8181;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  z-index: 10;
+}
+
+.arch-node__delete:hover {
+  background: #f56565;
+  transform: scale(1.1);
+}
+
+.arch-node__delete:active {
+  transform: scale(0.95);
+}
+
+.arch-node__connect {
+  position: absolute;
+  top: 2px;
+  right: 30px;
+  width: 24px;
+  height: 24px;
+  background: #4f8ef7;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  z-index: 10;
+}
+
+.arch-node__connect:hover {
+  background: #3d6fdd;
+  transform: scale(1.1);
+}
+
+.arch-node__connect:active {
+  transform: scale(0.95);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════

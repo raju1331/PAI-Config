@@ -1,104 +1,103 @@
-// ─── ASSET CATEGORIES ─────────────────────────────────────────────────────────
-// To add more assets: just push a new object into any category's `items` array.
-// The UI will automatically render them in the dropdown.
-import ItemIcon from "../assets/model.svg";
-import ModelIcon from "../assets/modelss.svg";
-import SubTemplate from "../assets/subtemp.svg";
-import Functional from"../assets/functional.svg";
-import Connector from"../assets/Link.svg";
-import AI from "../assets/ai.svg";
-import Repository from "../assets/repos.svg";
-export const ASSET_CATEGORIES = [
-  {
-    id: "models",
-    label: "Models",
-    icon: "/src/assets/modelss.svg",
-    iconType:"img",
-    color: "#12121f",
+export const ASSET_NODES = {
+  OmniverseModels: {
+    label: "Omniverse Models",
+    icon: "🎯",
+    color: "#1a2a4a",
     iconColor: "#4f8ef7",
-    items: [
-      { id: "aas",       name: "AAS model for B2B warehouse",      },
-      { id: "brain", name: "Brain of brains",           },
-      { id: "fup",        name: "FUP(Behavioral) models for B2B warehouse",            },
-      { id: "sysML",       name: "sysML V2 model for B2B warehouse",  },
-    ],
+    svgType: "svg1",
+    nodes: {
+      nvidia_kit_app: {
+        id: "nvidia_kit_app",
+        label: "Nvidia Kit App",
+        category: "NODE_TYPES.MODEL",
+        description: "Tribal knowledge & business rules",
+        allowedTargets: ["anylogic", "plantsim", "mqtt"],
+        requiredBefore: [],
+        maxOutgoing: 3,
+        svgType: "svg1",
+      },
+      warehouse_layout_generator_kit_app: {
+        id: "warehouse_layout_generator_kit_app",
+        label: "Warehouse Layout Designer",
+        category: "NODE_TYPES.FUNCTIONAL_BLOCK",
+        description: "Designs warehouse spatial layout",
+        allowedTargets: ["anylogic", "plantsim", "mqtt"],
+        requiredBefore: [],
+        maxOutgoing: 3,
+        svgType: "svg1",
+      },
+    },
   },
-  {
-    id: "sub-templates",
-    label: "Sub-Templates",
-   icon: "/src/assets/subtemp.svg",
-    iconType:"img",
-    color: "#12121f",
+  Simulation: {
+    label: "Simulation",
+    icon: "⚙️",
+    color: "#1a2a1a",
     iconColor: "#48bb78",
-    items: [
-      { id: "plant",  name: "PlantSim DES",   },
-    
-    ],
+    svgType: "svg2",
+    nodes: {
+      anylogic: {
+        id: "anylogic",
+        label: "Anylogic Simulation",
+        category: "NODE_TYPES.SIMULATOR",
+        description: "Simulation engines",
+        allowedTargets: ["repository"],
+        requiredBefore: ["mqtt", "nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 1,
+        svgType: "svg2",
+      },
+       plantsim: {
+        id: "plantsim",
+        label: "Plant Simulation",
+        category: "NODE_TYPES.SIMULATOR",
+        description: "Simulation engines",
+        allowedTargets: ["repository"],
+        requiredBefore: ["mqtt", "nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 1,
+        svgType: "svg2",
+      },
+    },
   },
-  {
-    id: "functional-building-blocks",
-    label: "Functional Building Blocks",
-    icon: "/src/assets/functional.svg",
-    iconType:"img",
-    color: "#12121f",
-    iconColor: "#9f7aea",
-    items: [
-      { id: "layout",  name: "Warehouse layout Designer",  },
-      { id: "design", name: "3D Design Assembler",            },
-      { id: "visualize", name: "3D Scence Visualizer",    },
-      
-    ],
-  },
-  {
-    id: "connectors",
-    label: "Connectors",
-    icon: "/src/assets/Link.svg",
-    iconType:"img",
-    color: "#000000",
-    iconColor: "#ed8936",
-    items: [
-      { id: "simu",      name: "Simulation tool Connector",  },
-      { id: "cad",    name: "CAD Connector"  },
-    ],
-  },
-  {
-    id: "ai-agents",
+  AI_Agents: {
     label: "AI Agents",
-    icon: "/src/assets/ai.svg",
-    iconType:"img",
-    color: "#12121f",
-    iconColor: "#fc8181",
-    items: [
-      { id: "opt",   name: "Optimizer",     },
-      { id: "orches",  name: "Orchestrator",    },
-      { id: "edit", name: "Quick Edits for 3D Model", },
-    ],
+    icon: "🤖",
+    color: "#2a1a0d",
+    iconColor: "#ed8936",
+    svgType: "svg3",
+    nodes: {
+      claude_opus_4_6: {
+        id: "claude_opus_4_6",
+        label: "Claude Opus 4.6",
+        category: "NODE_TYPES.AI_AGENT",
+        description: "AI-driven layout optimisation agent",
+        allowedTargets: ["nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        requiredBefore: [],
+        maxOutgoing: 2,
+        svgType: "svg3",
+      },
+    },
   },
-  {
-    id: "repositories",
-    label: "Repositories",
-    icon: "/src/assets/repos.svg",
-    iconType:"img",
-    color: "#12121f",
-    iconColor: "#a55eea",
-    items: [
-      { id: "repos",   name: "3D Model Repository" },
-      
-    ],
-  }
-];
+  Connectors: {
+    label: "Connectors",
+    icon: "🔗",
+    color: "#2a0d0d",
+    iconColor: "#fc8181",
+    svgType: "svg4",
+    nodes: {
+      mqtt: {
+        id: "mqtt",
+        label: "MQTT",
+        category: "NODE_TYPES.CONNECTOR",
+        description: "Application Connector",
+        allowedTargets: ["anylogic", "plantsim"],
+        requiredBefore: ["nvidia_kit_app", "warehouse_layout_generator_kit_app"],
+        maxOutgoing: 2,
+        svgType: "svg4",
+      },
+    },
+  },
+};
 
-// ─── INITIAL DIAGRAM NODES ─────────────────────────────────────────────────────
-export const INITIAL_NODES = [
-  { id: 1, title: "API Gateway",   subtitle: "HTTP/2 · REST",       color: "#12121f", iconColor: "#4f8ef7", x: 60,  y: 60,  status: "Running" },
-  { id: 2, title: "LLM Service",   subtitle: "Inference · GPU",     color: "#12121f", iconColor: "#ed8936", x: 300, y: 60,  status: "Running" },
-  { id: 3, title: "Vector Store",  subtitle: "pgvector · 1536d",   color: "#12121f", iconColor: "#48bb78", x: 60,  y: 220, status: "Healthy" },
-  { id: 4, title: "Cache Layer",   subtitle: "Redis · 6GB",      color: "#12121f", iconColor: "#48bb78", x: 300, y: 220, status: "Healthy" },
-];
+export const INITIAL_NODES = [];
 
-// ─── INITIAL CONNECTIONS ───────────────────────────────────────────────────────
-export const INITIAL_CONNECTIONS = [
-  { from: 1, to: 2 },
-  { from: 1, to: 3 },
-  { from: 2, to: 4 },
-];
+export const INITIAL_CONNECTIONS = [];
+

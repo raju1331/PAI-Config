@@ -2,7 +2,6 @@ import { useState } from "react";
 
 // ── Global styles ──────────────────────────────────────────────────────────────
 import "./styles/global.css";
-import "./App.css";
 
 // ── Components ─────────────────────────────────────────────────────────────────
 import Header         from "./components/Header.jsx";
@@ -17,7 +16,7 @@ import DiagramCanvas  from "./components/DiagramCanvas.jsx";
  *   3. DiagramCanvas (canvas + right properties panel)
  */
 export default function App() {
-  const [activeTab, setActiveTab] = useState("Design");
+  const [activeTab, setActiveTab] = useState();
   const [nodes, setNodes] = useState([]); // Start with empty canvas
 
   return (

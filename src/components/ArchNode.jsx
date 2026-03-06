@@ -1,63 +1,85 @@
 import { useState } from "react";
 import SVGNode from "./SVGNode.jsx";
 
-/**
- * ArchNode
- * A single draggable node on the architecture canvas using SVG shapes.
- *
- * Props:
- *  - node        { id, title, color, iconColor, x, y, svgType, ... }
- *  - isSelected  bool
- *  - onMouseDown (e, nodeId) => void
- *  - onDelete    (nodeId) => void
- *  - onConnect   (nodeId) => void
- */
-export default function ArchNode({ node, isSelected, onMouseDown, onDelete, onConnect }) {
+export default function ArchNode({ node, isSelected, onMouseDown, onDelete, onConnect, onDoubleClick, isConnecting, onPortMouseDown }) {
   const [showActions, setShowActions] = useState(false);
-console.log("Rendering ArchNode:", node);
+
   const handleDeleteClick = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     onDelete?.(node.id);
   };
 
-  const handleConnectClick = (e) => {
+  const handleMouseDown = (e) => {
+    if (e.target.closest("button")) return;
+    if (e.target.closest(".arch-node__port")) return;
+    onMouseDown(e, node.id);
+  };
+
+  const handleDoubleClick = (e) => {
     e.stopPropagation();
-    onConnect?.(node.id);
+    onDoubleClick?.(node);
+  };
+
+  const handleNodeClick = (e) => {
+    if (isConnecting) {
+      e.stopPropagation();
+      onConnect?.(node.id);
+    }
   };
 
   return (
     <div
-      className={`arch-node arch-node--svg ${isSelected ? "arch-node--selected" : ""}`}
-      style={{ left: node.x, top: node.y }}
-      onMouseDown={(e) => onMouseDown(e, node.id)}
+      className={`arch-node arch-node--svg ${isSelected ? "arch-node--selected" : ""} ${isConnecting ? "arch-node--connecting" : ""}`}
+      style={{ 
+        left: node.x, 
+        top: node.y, 
+        position: "absolute",
+        cursor: isConnecting ? "crosshair" : "grab",
+        outline: isConnecting ? "2px solid #7c6af7" : "none",
+        borderRadius: "50%",
+      }}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
+      onClick={handleNodeClick}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      {/* Delete button - shows on hover */}
       {showActions && (
         <button
           className="arch-node__delete"
-          title="Delete node"
+          title="Delete"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={handleDeleteClick}
-          aria-label="Delete node"
         >
-          ✕
+          <img src="/src/assets/Button.svg" alt="delete" width="18" height="18" />
         </button>
       )}
 
-      {/* Connect button - shows on hover */}
       {showActions && (
-        <button
-          className="arch-node__connect"
-          title="Connect nodes"
-          onClick={handleConnectClick}
-          aria-label="Connect to another node"
-        >
-          ◉
-        </button>
+        <div
+          className="arch-node__port arch-node__port--connect"
+          title="Click to connect"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onPortMouseDown?.(node.id);
+          }}
+          style={{
+            position: "absolute",
+            bottom: "-14px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "12px",
+            height: "12px",
+            background: "#7c6af7",
+            border: "2px solid #fff",
+            borderRadius: "50%",
+            cursor: "crosshair",
+            zIndex: 10,
+          }}
+        />
       )}
 
-      {/* SVG Node Rendering */}
       <SVGNode
         svgType={node.svgType}
         label={node.title}

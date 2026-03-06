@@ -1,28 +1,29 @@
 import { useState } from "react";
 import ArchNode from "./ArchNode.jsx";
-// import PropertiesPanel from "./PropertiesPanel.jsx";
+import Property from "./Property.jsx";
 
 export default function DiagramCanvas({ nodes, setNodes }) {
   const [selectedNodeId, setSelectedId] = useState(null);
-  const [dragging, setDragging]       = useState(null); // { nodeId, offsetX, offsetY }
-  const [connections, setConnections] = useState([]); // Array of { from, to }
-  const [connectingFrom, setConnectingFrom] = useState(null); // Node ID we're connecting from
+  const [dragging, setDragging] = useState(null);
+  const [connections, setConnections] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [selectedNodeForProps, setSelectedNodeForProps] = useState(null);
+  const [connectingFromId, setConnectingFromId] = useState(null);
 
-  // Compute canvas data on the fly (not stored in state)
+  const handleNodeDoubleClick = (node) => {
+    setSelectedNodeForProps(node);
+  };
+
+  const showToast = (message, type = "warning") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const getCanvasData = () => ({
     nodes: nodes.map(({ id, title, subtitle, icon, status, assetId, category, allowedTargets, requiredBefore, maxOutgoing }) => ({
-      id,
-      title,
-      subtitle,
-      icon,
-      status,
-      assetId,
-      category,
-      allowedTargets,
-      requiredBefore,
-      maxOutgoing,
+      id, title, subtitle, icon, status, assetId, category, allowedTargets, requiredBefore, maxOutgoing,
     })),
-    connections: connections,
+    connections,
     exportedAt: new Date().toISOString(),
   });
 
@@ -45,8 +46,12 @@ export default function DiagramCanvas({ nodes, setNodes }) {
     );
   };
 
-  const handleMouseUp  = () => setDragging(null);
-  const handleBgClick  = () => setSelectedId(null);
+  const handleMouseUp = () => setDragging(null);
+
+  const handleBgClick = () => {
+    setSelectedId(null);
+    setConnectingFromId(null);
+  };
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -55,18 +60,13 @@ export default function DiagramCanvas({ nodes, setNodes }) {
 
   const handleDrop = (e) => {
     e.preventDefault();
-    
     try {
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
-      
       if (data.type === "asset") {
-        // Get canvas position
-        const canvasWrapper = e.currentTarget.querySelector(".canvas-wrapper");
-        const rect = canvasWrapper?.getBoundingClientRect();
-        const x = e.clientX - (rect?.left || 0);
-        const y = e.clientY - (rect?.top || 0);
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-        // Create a new node from the dropped asset
         const newNodeId = Math.max(...nodes.map(n => typeof n.id === 'number' ? n.id : 0), 0) + 1;
         const newNode = {
           id: newNodeId,
@@ -75,18 +75,16 @@ export default function DiagramCanvas({ nodes, setNodes }) {
           icon: data.asset.icon,
           color: data.color,
           iconColor: data.iconColor,
-          x: Math.max(0, x - 50), // Center the node at drop point (SVG nodes are smaller)
-          y: Math.max(0, y - 60),
+          x: Math.max(0, x - 44),
+          y: Math.max(0, y - 44),
           status: "Running",
           svgType: data.asset.svgType,
-          // Additional metadata from asset
           assetId: data.asset.id,
           category: data.asset.category,
           allowedTargets: data.asset.allowedTargets,
           requiredBefore: data.asset.requiredBefore,
           maxOutgoing: data.asset.maxOutgoing,
         };
-
         setNodes((prev) => [...prev, newNode]);
       }
     } catch (error) {
@@ -95,102 +93,73 @@ export default function DiagramCanvas({ nodes, setNodes }) {
   };
 
   const handleDeleteNode = (nodeId) => {
-    // Remove the node
     setNodes((prev) => prev.filter((n) => n.id !== nodeId));
-    
-    // Remove all connections involving this node
     setConnections((prev) =>
       prev.filter((conn) => conn.from !== nodeId && conn.to !== nodeId)
     );
-    
     setSelectedId(null);
   };
 
+  const handlePortMouseDown = (nodeId) => {
+    setConnectingFromId(nodeId);
+  };
+
   const handleConnect = (nodeId) => {
-    if (connectingFrom === null) {
-      // Start connection from this node
-      setConnectingFrom(nodeId);
-    } else if (connectingFrom === nodeId) {
-      // Cancel connection
-      setConnectingFrom(null);
-    } else {
-      // Complete connection
-      const fromNode = nodes.find((n) => n.id === connectingFrom);
-      const toNode = nodes.find((n) => n.id === nodeId);
-      if (!fromNode || !toNode) {
-        setConnectingFrom(null);
-        return;
-      }
-
-      // Validation: fromNode.allowedTargets must include toNode.id, and toNode.requiredBefore must include fromNode.id
-      const allowed = Array.isArray(fromNode.allowedTargets) && fromNode.allowedTargets.includes(toNode.assetId);
-      // const required = Array.isArray(toNode.requiredBefore) && toNode.requiredBefore.includes(fromNode.id);
-
-      if (!allowed ) {
-        // Optionally, show a message to the user (could use alert or a better UI feedback)
-        alert("Connection between these 2 assests is not feasible.");
-        setConnectingFrom(null);
-        return;
-      }
-
-      const newConnection = { from: connectingFrom, to: nodeId };
-      // Avoid duplicate connections (directional)
+    if (connectingFromId !== null && connectingFromId !== nodeId) {
       const exists = connections.some(
-        (conn) => conn.from === connectingFrom && conn.to === nodeId
+        (conn) => conn.from === connectingFromId && conn.to === nodeId
       );
       if (!exists) {
-        setConnections((prev) => [...prev, newConnection]);
+        setConnections((prev) => [...prev, { from: connectingFromId, to: nodeId }]);
       }
-      setConnectingFrom(null);
+      setConnectingFromId(null);
     }
   };
 
-  const drawConnections = () => {
-    if (connections.length === 0 && connectingFrom === null) return;
+  const isAIAgentNode = (nodeId) => {
+    const node = nodes.find((n) => n.id === nodeId);
+    return node?.svgType === "svg3" ||
+      node?.category === "NODE_TYPES.AI_AGENT" ||
+      node?.assetId === "claude_opus_4_6";
+  };
 
+  const drawConnections = () => {
+    if (connections.length === 0) return;
     const paths = [];
 
-    // Draw existing connections
     connections.forEach((conn, i) => {
       const fromNode = nodes.find((n) => n.id === conn.from);
       const toNode = nodes.find((n) => n.id === conn.to);
-      
       if (!fromNode || !toNode) return;
 
-      const x1 = fromNode.x + 75;
-      const y1 = fromNode.y + 55;
-      const x2 = toNode.x + 75;
-      const y2 = toNode.y + 55;
-      const mx = (x1 + x2) / 2;
+      const x1 = fromNode.x + 44;
+      const y1 = fromNode.y + 44;
+      const x2 = toNode.x + 44;
+      const y2 = toNode.y + 44;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const radius = 44;
+
+      const startX = x1 + Math.cos(angle) * radius;
+      const startY = y1 + Math.sin(angle) * radius;
+      const endX = x2 - Math.cos(angle) * radius;
+      const endY = y2 - Math.sin(angle) * radius;
+
+      const isDotted = isAIAgentNode(conn.from) || isAIAgentNode(conn.to);
 
       paths.push(
-        <path
-          key={`conn-${i}`}
-          d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
-          fill="none"
-          stroke="#2a3148"
-          strokeWidth="2"
-          markerEnd="url(#arrowhead)"
-        />
+        <g key={`conn-${i}`}>
+          <circle cx={startX} cy={startY} r="4" fill="#7c6af7" />
+          <line
+            x1={startX} y1={startY}
+            x2={endX} y2={endY}
+            stroke="#7c6af7"
+            strokeWidth="1.5"
+            strokeDasharray={isDotted ? "6 4" : undefined}
+            markerEnd="url(#arrowhead)"
+          />
+        </g>
       );
     });
-
-    // Draw temporary connection line while connecting
-    if (connectingFrom !== null) {
-      const fromNode = nodes.find((n) => n.id === connectingFrom);
-      if (fromNode) {
-        paths.push(
-          <circle
-            key="connect-indicator"
-            cx={fromNode.x + 75}
-            cy={fromNode.y + 55}
-            r="5"
-            fill="#4f8ef7"
-            opacity="0.5"
-          />
-        );
-      }
-    }
 
     return paths;
   };
@@ -210,34 +179,48 @@ export default function DiagramCanvas({ nodes, setNodes }) {
 
   return (
     <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: "column" }}>
-      {/* Info bar */}
-      <div style={{ padding: "8px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", gap: "8px", alignItems: "center", background: "#f7fafc" }}>
-        <span style={{ fontSize: "12px", color: "#4a5568" }}>
+
+      {connectingFromId && (
+        <div style={{
+          position: "fixed", top: "60px", left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, padding: "8px 16px", borderRadius: "8px",
+          background: "#7c6af7", color: "white", fontSize: "12px",
+          pointerEvents: "none",
+        }}>
+          Now click another node to connect
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
+          padding: "12px 20px", borderRadius: "8px", fontSize: "13px",
+          fontWeight: "500", color: "white", maxWidth: "360px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          background: toast.type === "success" ? "#2f855a" : "#b7791f",
+          borderLeft: `4px solid ${toast.type === "success" ? "#48bb78" : "#f6ad55"}`,
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      <div style={{ padding: "8px 16px", borderBottom: "1px solid #2a2a3d", display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14" }}>
+        <span style={{ fontSize: "12px", color: "#a0aec0" }}>
           Nodes: {nodes.length} | Connections: {connections.length}
         </span>
-        {connectingFrom !== null && (
-          <span style={{ fontSize: "12px", color: "#4f8ef7", fontWeight: "bold" }}>
-            Click another node to connect (or same node to cancel)
-          </span>
-        )}
         <button
           onClick={exportCanvasAsJSON}
           style={{
-            marginLeft: "auto",
-            padding: "4px 12px",
-            fontSize: "11px",
-            background: "#4f8ef7",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
+            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
+            background: "#4f8ef7", color: "white", border: "none",
+            borderRadius: "4px", cursor: "pointer",
           }}
         >
           Export JSON
         </button>
       </div>
 
-      <div className="canvas-area" style={{ flex: 1, overflow: "hidden" }}>
+      <div className="canvas-area" style={{ flex: 1, overflow: "auto" }}>
         <div
           className="canvas-wrapper"
           onMouseMove={handleMouseMove}
@@ -245,7 +228,7 @@ export default function DiagramCanvas({ nodes, setNodes }) {
           onClick={handleBgClick}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          style={{ position: "relative" }}
+          style={{ position: "relative", width: "100%", height: "100%", minHeight: "600px" }}
         >
           {nodes.length === 0 && (
             <div className="canvas-empty">
@@ -255,54 +238,40 @@ export default function DiagramCanvas({ nodes, setNodes }) {
             </div>
           )}
 
-          {/* SVG for connections */}
           <svg
             className="connections-svg"
             aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              pointerEvents: "none",
-            }}
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
           >
             <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="10"
-                markerHeight="10"
-                refX="9"
-                refY="3"
-                orient="auto"
-              >
-                <polygon points="0 0, 10 3, 0 6" fill="#2a3148" />
+              <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#7c6af7" />
               </marker>
             </defs>
             {drawConnections()}
           </svg>
 
-          {/* Architecture nodes */}
           {nodes.map((node) => (
             <ArchNode
               key={node.id}
               node={node}
-              isSelected={node.id === selectedNodeId || node.id === connectingFrom}
+              isSelected={node.id === selectedNodeId}
               onMouseDown={handleNodeMouseDown}
               onDelete={handleDeleteNode}
               onConnect={handleConnect}
+              onDoubleClick={handleNodeDoubleClick}
+              isConnecting={connectingFromId !== null && connectingFromId !== node.id}
+              onPortMouseDown={handlePortMouseDown}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Properties panel ── */}
-      {/* <PropertiesPanel
-        selectedNode={selectedNode}
-        nodeCount={nodes.length}
-        connectionCount={connections.length}
-      /> */}
+      <Property
+        node={selectedNodeForProps}
+        onClose={() => setSelectedNodeForProps(null)}
+        onSave={(props) => console.log("Saved props:", props)}
+      />
     </div>
   );
 }

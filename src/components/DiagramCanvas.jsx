@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import ArchNode from "./ArchNode.jsx";
 import Property from "./Property.jsx";
 
@@ -9,10 +9,91 @@ export default function DiagramCanvas({ nodes, setNodes }) {
   const [toast, setToast] = useState(null);
   const [selectedNodeForProps, setSelectedNodeForProps] = useState(null);
   const [connectingFromId, setConnectingFromId] = useState(null);
+  const [dragConnection, setDragConnection] = useState(null);
 
-  const handleNodeDoubleClick = (node) => {
-    setSelectedNodeForProps(node);
-  };
+  const canvasRef = useRef(null);
+  const draggingRef = useRef(null);
+  const dragConnectionRef = useRef(null);
+  const nodesRef = useRef(nodes);
+  const connectionsRef = useRef(connections);
+
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { connectionsRef.current = connections; }, [connections]);
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (draggingRef.current) {
+        const { nodeId, offsetX, offsetY } = draggingRef.current;
+        setNodes((prev) =>
+          prev.map((n) =>
+            n.id === nodeId
+              ? { ...n, x: e.clientX - offsetX, y: e.clientY - offsetY }
+              : n
+          )
+        );
+      }
+
+      if (dragConnectionRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const updated = {
+          ...dragConnectionRef.current,
+          mouseX: e.clientX - rect.left,
+          mouseY: e.clientY - rect.top,
+        };
+        dragConnectionRef.current = updated;
+        setDragConnection({ ...updated });
+      }
+    };
+
+    const onMouseUp = (e) => {
+      draggingRef.current = null;
+      setDragging(null);
+
+      if (dragConnectionRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+          const sizes = {
+            svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
+            svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
+          };
+          const fromId = dragConnectionRef.current.fromId;
+          const target = nodesRef.current.find((n) => {
+            if (n.id === fromId) return false;
+            const s = sizes[n.svgType] || { w: 88, h: 88 };
+            return (
+              mx >= n.x - 10 &&
+              mx <= n.x + s.w + 10 &&
+              my >= n.y - 10 &&
+              my <= n.y + s.h + 40
+            );
+          });
+          if (target) {
+            const exists = connectionsRef.current.some(
+              (conn) => conn.from === fromId && conn.to === target.id
+            );
+            if (!exists) {
+              setConnections((prev) => [...prev, { from: fromId, to: target.id }]);
+            }
+          }
+        }
+        dragConnectionRef.current = null;
+        setDragConnection(null);
+        setConnectingFromId(null);
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [setNodes]);
+
+  const handleNodeDoubleClick = (node) => setSelectedNodeForProps(node);
 
   const showToast = (message, type = "warning") => {
     setToast({ message, type });
@@ -31,32 +112,19 @@ export default function DiagramCanvas({ nodes, setNodes }) {
     e.stopPropagation();
     setSelectedId(nodeId);
     const node = nodes.find((n) => n.id === nodeId);
-    setDragging({ nodeId, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y });
+    const d = { nodeId, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y };
+    draggingRef.current = d;
+    setDragging(d);
   };
-
-  const handleMouseMove = (e) => {
-    if (!dragging) return;
-    const { nodeId, offsetX, offsetY } = dragging;
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === nodeId
-          ? { ...n, x: e.clientX - offsetX, y: e.clientY - offsetY }
-          : n
-      )
-    );
-  };
-
-  const handleMouseUp = () => setDragging(null);
 
   const handleBgClick = () => {
     setSelectedId(null);
     setConnectingFromId(null);
+    dragConnectionRef.current = null;
+    setDragConnection(null);
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -66,9 +134,8 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-
         const newNodeId = Math.max(...nodes.map(n => typeof n.id === 'number' ? n.id : 0), 0) + 1;
-        const newNode = {
+        setNodes((prev) => [...prev, {
           id: newNodeId,
           title: data.asset.label,
           subtitle: data.asset.description,
@@ -84,8 +151,7 @@ export default function DiagramCanvas({ nodes, setNodes }) {
           allowedTargets: data.asset.allowedTargets,
           requiredBefore: data.asset.requiredBefore,
           maxOutgoing: data.asset.maxOutgoing,
-        };
-        setNodes((prev) => [...prev, newNode]);
+        }]);
       }
     } catch (error) {
       console.error("Error parsing dropped data:", error);
@@ -100,9 +166,7 @@ export default function DiagramCanvas({ nodes, setNodes }) {
     setSelectedId(null);
   };
 
-  const handlePortMouseDown = (nodeId) => {
-    setConnectingFromId(nodeId);
-  };
+  const handlePortMouseDown = (nodeId) => setConnectingFromId(nodeId);
 
   const handleConnect = (nodeId) => {
     if (connectingFromId !== null && connectingFromId !== nodeId) {
@@ -123,8 +187,41 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       node?.assetId === "claude_opus_4_6";
   };
 
+  // CRITICAL FIX: capture clientX/Y immediately, do NOT use useCallback
+  // so it always has fresh canvasRef and nodesRef
+  const handlePortDragStart = (nodeId, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Capture mouse coords NOW before anything async
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node) return;
+
+    const sizes = {
+      svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
+      svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
+    };
+    const s = sizes[node.svgType] || { w: 88, h: 88 };
+
+    const dc = {
+      fromId: nodeId,
+      fromX: node.x + s.w / 2,
+      fromY: node.y + s.h,
+      mouseX: clientX - rect.left,
+      mouseY: clientY - rect.top,
+    };
+
+    dragConnectionRef.current = dc;
+    setDragConnection(dc);
+  };
+
   const drawConnections = () => {
-    if (connections.length === 0) return;
     const paths = [];
 
     connections.forEach((conn, i) => {
@@ -161,6 +258,24 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       );
     });
 
+    if (dragConnection) {
+      const isDotted = isAIAgentNode(dragConnection.fromId);
+      paths.push(
+        <g key="drag-preview" style={{ pointerEvents: "none" }}>
+          <circle cx={dragConnection.fromX} cy={dragConnection.fromY} r="5" fill="#7c6af7" />
+          <line
+            x1={dragConnection.fromX} y1={dragConnection.fromY}
+            x2={dragConnection.mouseX} y2={dragConnection.mouseY}
+            stroke="#7c6af7"
+            strokeWidth="1.5"
+            opacity="0.75"
+            strokeDasharray={isDotted ? "6 4" : "4 3"}
+            markerEnd="url(#arrowhead)"
+          />
+        </g>
+      );
+    }
+
     return paths;
   };
 
@@ -191,6 +306,17 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         </div>
       )}
 
+      {dragConnection && (
+        <div style={{
+          position: "fixed", top: "60px", left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, padding: "8px 16px", borderRadius: "20px",
+          background: "rgba(124,106,247,0.15)", border: "1px solid #7c6af7",
+          color: "#a78bfa", fontSize: "12px", pointerEvents: "none",
+        }}>
+          Drop onto a node to connect
+        </div>
+      )}
+
       {toast && (
         <div style={{
           position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
@@ -208,27 +334,24 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         <span style={{ fontSize: "12px", color: "#a0aec0" }}>
           Nodes: {nodes.length} | Connections: {connections.length}
         </span>
-        <button
-          onClick={exportCanvasAsJSON}
-          style={{
-            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
-            background: "#4f8ef7", color: "white", border: "none",
-            borderRadius: "4px", cursor: "pointer",
-          }}
-        >
+        <button onClick={exportCanvasAsJSON}
+          style={{ marginLeft: "auto", padding: "4px 12px", fontSize: "11px", background: "#4f8ef7", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
           Export JSON
         </button>
       </div>
 
       <div className="canvas-area" style={{ flex: 1, overflow: "auto" }}>
         <div
+          ref={canvasRef}
           className="canvas-wrapper"
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
           onClick={handleBgClick}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          style={{ position: "relative", width: "100%", height: "100%", minHeight: "600px" }}
+          style={{
+            position: "relative", width: "100%", height: "100%", minHeight: "600px",
+            cursor: dragConnection ? "crosshair" : "default",
+            userSelect: "none",
+          }}
         >
           {nodes.length === 0 && (
             <div className="canvas-empty">
@@ -262,6 +385,8 @@ export default function DiagramCanvas({ nodes, setNodes }) {
               onDoubleClick={handleNodeDoubleClick}
               isConnecting={connectingFromId !== null && connectingFromId !== node.id}
               onPortMouseDown={handlePortMouseDown}
+              isDragConnecting={!!dragConnection && dragConnection.fromId !== node.id}
+              onPortDragStart={handlePortDragStart}
             />
           ))}
         </div>

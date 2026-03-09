@@ -160,10 +160,10 @@
   flex-direction: column;
 }
 
-
+/* 
 .sidebar__header {
   padding: 0.75rem 0.75rem 0 0.75rem;
-}
+} */
 
 .sidebar__search {
   position: relative;
@@ -392,7 +392,7 @@
 }
 .arch-node {
   position: absolute;
-  cursor: grab;
+  /* cursor: grab; */
   user-select: none;
 }
 
@@ -439,8 +439,13 @@
 
 .canvas-area {
   flex: 1;
-  overflow: visible;
+  overflow: scroll;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE 10+ */
   position: relative;
+}
+.canvas-area::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .canvas-wrapper {

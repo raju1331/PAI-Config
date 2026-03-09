@@ -205,9 +205,9 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       )}
 
       <div style={{ padding: "8px 16px", borderBottom: "1px solid #2a2a3d", display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14" }}>
-        <span style={{ fontSize: "12px", color: "#a0aec0" }}>
+        {/* <span style={{ fontSize: "12px", color: "#a0aec0" }}>
           Nodes: {nodes.length} | Connections: {connections.length}
-        </span>
+        </span> */}
         <button
           onClick={exportCanvasAsJSON}
           style={{
@@ -220,7 +220,7 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         </button>
       </div>
 
-      <div className="canvas-area" style={{ flex: 1, overflow: "auto" }}>
+      <div className="canvas-area" style={{ flex: 1}}>
         <div
           className="canvas-wrapper"
           onMouseMove={handleMouseMove}

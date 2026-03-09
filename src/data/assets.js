@@ -30,7 +30,7 @@ export const ASSET_NODES = {
     },
   },
   Simulation: {
-    label: "Sub-Templates",
+    label: "Simulation Engines",
     icon: "/src/assets/subtemp.svg",
     iconType: "img",
     color: "#12121f",

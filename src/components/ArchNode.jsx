@@ -35,8 +35,8 @@ export default function ArchNode({ node, isSelected, onMouseDown, onDelete, onCo
         left: node.x, 
         top: node.y, 
         position: "absolute",
-        cursor: isConnecting ? "crosshair" : "grab",
-        outline: isConnecting ? "2px solid #7c6af7" : "none",
+        // cursor: isConnecting ? "crosshair" : "grab",
+        // outline: isConnecting ? "2px solid #7c6af7" : "none",
         borderRadius: "50%",
       }}
       onMouseDown={handleMouseDown}
@@ -66,7 +66,7 @@ export default function ArchNode({ node, isSelected, onMouseDown, onDelete, onCo
           }}
           style={{
             position: "absolute",
-            bottom: "-14px",
+            bottom: "14px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "12px",

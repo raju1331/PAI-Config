@@ -331,16 +331,22 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       )}
 
       <div style={{ padding: "8px 16px", borderBottom: "1px solid #2a2a3d", display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14" }}>
-        <span style={{ fontSize: "12px", color: "#a0aec0" }}>
+        {/* <span style={{ fontSize: "12px", color: "#a0aec0" }}>
           Nodes: {nodes.length} | Connections: {connections.length}
-        </span>
-        <button onClick={exportCanvasAsJSON}
-          style={{ marginLeft: "auto", padding: "4px 12px", fontSize: "11px", background: "#4f8ef7", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+        </span> */}
+        <button
+          onClick={exportCanvasAsJSON}
+          style={{
+            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
+            background: "#4f8ef7", color: "white", border: "none",
+            borderRadius: "4px", cursor: "pointer",
+          }}
+        >
           Export JSON
         </button>
       </div>
 
-      <div className="canvas-area" style={{ flex: 1, overflow: "auto" }}>
+      <div className="canvas-area" style={{ flex: 1}}>
         <div
           ref={canvasRef}
           className="canvas-wrapper"

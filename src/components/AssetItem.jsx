@@ -1,5 +1,5 @@
 const CATEGORY_ICONS = {
-  "OmniverseModels": "/src/assets/models.svg",
+  "OmniverseModels": "/src/assets/modelss.svg",
   "Simulation": "/src/assets/subtemp.svg",
   "AI_Agents": "/src/assets/ai.svg",
   "Connectors": "/src/assets/Link.svg",
@@ -8,7 +8,7 @@ const CATEGORY_ICONS = {
 };
 
 export default function AssetItem({ item, catIconColor, catId }) {
-  const iconSrc = CATEGORY_ICONS[catId] || "/src/assets/models.svg";
+  const iconSrc = CATEGORY_ICONS[catId] || "/src/assets/modelss.svg";
 
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = "move";

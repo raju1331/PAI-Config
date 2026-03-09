@@ -37,9 +37,9 @@ export default function ArchNode({
         left: node.x,
         top: node.y,
         position: "absolute",
-        cursor: isConnecting || isDragConnecting ? "crosshair" : "grab",
-        zIndex: 2,
-        display: "inline-block",
+        // cursor: isConnecting ? "crosshair" : "grab",
+        // outline: isConnecting ? "2px solid #7c6af7" : "none",
+        borderRadius: "50%",
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(node); }}
@@ -82,7 +82,7 @@ export default function ArchNode({
           }}
           style={{
             position: "absolute",
-            bottom: "-14px",
+            bottom: "14px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "12px", height: "12px",

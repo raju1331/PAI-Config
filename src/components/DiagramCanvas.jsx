@@ -60,6 +60,8 @@ export default function DiagramCanvas({ nodes, setNodes }) {
             svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
           };
           const fromId = dragConnectionRef.current.fromId;
+          const fromNode = nodesRef.current.find((n) => n.id === fromId);
+
           const target = nodesRef.current.find((n) => {
             if (n.id === fromId) return false;
             const s = sizes[n.svgType] || { w: 88, h: 88 };
@@ -70,12 +72,32 @@ export default function DiagramCanvas({ nodes, setNodes }) {
               my <= n.y + s.h + 40
             );
           });
-          if (target) {
+
+          if (target && fromNode) {
+            // ORIGINAL duplicate check
             const exists = connectionsRef.current.some(
               (conn) => conn.from === fromId && conn.to === target.id
             );
-            if (!exists) {
+
+            // NEW: allowedTargets validation
+            const allowedTargets = fromNode.allowedTargets || [];
+            const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(target.assetId);
+
+            // NEW: maxOutgoing validation
+            const outgoingCount = connectionsRef.current.filter(
+              (conn) => conn.from === fromId
+            ).length;
+            const maxOutgoing = fromNode.maxOutgoing ?? Infinity;
+            const withinMax = outgoingCount < maxOutgoing;
+
+            if (!exists && isAllowed && withinMax) {
               setConnections((prev) => [...prev, { from: fromId, to: target.id }]);
+            } else if (exists) {
+              showToast("Connection already exists.", "warning");
+            } else if (!isAllowed) {
+              showToast(`${fromNode.title} cannot connect to ${target.title}.`, "warning");
+            } else if (!withinMax) {
+              showToast(`${fromNode.title} has reached its max outgoing connections (${maxOutgoing}).`, "warning");
             }
           }
         }
@@ -170,12 +192,32 @@ export default function DiagramCanvas({ nodes, setNodes }) {
 
   const handleConnect = (nodeId) => {
     if (connectingFromId !== null && connectingFromId !== nodeId) {
+      const fromNode = nodes.find((n) => n.id === connectingFromId);
+      const toNode = nodes.find((n) => n.id === nodeId);
+
       const exists = connections.some(
         (conn) => conn.from === connectingFromId && conn.to === nodeId
       );
-      if (!exists) {
+
+      // NEW: allowedTargets validation
+      const allowedTargets = fromNode?.allowedTargets || [];
+      const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(toNode?.assetId);
+
+      // NEW: maxOutgoing validation
+      const outgoingCount = connections.filter((conn) => conn.from === connectingFromId).length;
+      const maxOutgoing = fromNode?.maxOutgoing ?? Infinity;
+      const withinMax = outgoingCount < maxOutgoing;
+
+      if (!exists && isAllowed && withinMax) {
         setConnections((prev) => [...prev, { from: connectingFromId, to: nodeId }]);
+      } else if (exists) {
+        showToast("Connection already exists.", "warning");
+      } else if (!isAllowed) {
+        showToast(`${fromNode?.title} cannot connect to ${toNode?.title}.`, "warning");
+      } else if (!withinMax) {
+        showToast(`${fromNode?.title} has reached its max outgoing connections (${maxOutgoing}).`, "warning");
       }
+
       setConnectingFromId(null);
     }
   };
@@ -187,28 +229,20 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       node?.assetId === "claude_opus_4_6";
   };
 
-  // CRITICAL FIX: capture clientX/Y immediately, do NOT use useCallback
-  // so it always has fresh canvasRef and nodesRef
   const handlePortDragStart = (nodeId, e) => {
     e.stopPropagation();
     e.preventDefault();
-
-    // Capture mouse coords NOW before anything async
     const clientX = e.clientX;
     const clientY = e.clientY;
-
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-
     const node = nodesRef.current.find((n) => n.id === nodeId);
     if (!node) return;
-
     const sizes = {
       svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
       svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
     };
     const s = sizes[node.svgType] || { w: 88, h: 88 };
-
     const dc = {
       fromId: nodeId,
       fromX: node.x + s.w / 2,
@@ -216,7 +250,6 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       mouseX: clientX - rect.left,
       mouseY: clientY - rect.top,
     };
-
     dragConnectionRef.current = dc;
     setDragConnection(dc);
   };
@@ -331,9 +364,6 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       )}
 
       <div style={{ padding: "8px 16px", borderBottom: "1px solid #2a2a3d", display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14" }}>
-        {/* <span style={{ fontSize: "12px", color: "#a0aec0" }}>
-          Nodes: {nodes.length} | Connections: {connections.length}
-        </span> */}
         <button
           onClick={exportCanvasAsJSON}
           style={{
@@ -346,7 +376,7 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         </button>
       </div>
 
-      <div className="canvas-area" style={{ flex: 1}}>
+      <div className="canvas-area" style={{ flex: 1 }}>
         <div
           ref={canvasRef}
           className="canvas-wrapper"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import SVGNode from "./SVGNode.jsx";
 
 export default function ArchNode({
@@ -17,6 +17,14 @@ export default function ArchNode({
   const [isDraggingPort, setIsDraggingPort] = useState(false);
 
   const shouldShow = hovered || isDraggingPort;
+
+  const sizes = {
+    svg1: { w: 88, h: 88 },
+    svg2: { w: 149, h: 90 },
+    svg3: { w: 80, h: 80 },
+    svg4: { w: 64, h: 40 },
+  };
+  const { w, h } = sizes[node.svgType] || { w: 88, h: 88 };
 
   const handleMouseDown = (e) => {
     if (e.target.closest("button")) return;
@@ -37,21 +45,36 @@ export default function ArchNode({
         left: node.x,
         top: node.y,
         position: "absolute",
-        // cursor: isConnecting ? "crosshair" : "grab",
-        // outline: isConnecting ? "2px solid #7c6af7" : "none",
-        borderRadius: "50%",
+        width: w,
+        height: h + 60, // KEY: explicit height so dots below are inside bounds
+        zIndex: 2,
+        cursor: isConnecting || isDragConnecting ? "crosshair" : "grab",
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick?.(node); }}
       onClick={handleNodeClick}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { if (!isDraggingPort) setHovered(false); }}
     >
+      {/* SVG node rendered at top of wrapper */}
+      <div style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}>
+        <SVGNode
+          svgType={node.svgType}
+          label={node.title}
+          color={node.color}
+          iconColor={node.iconColor}
+        />
+      </div>
+
       {/* Selection ring */}
       {isSelected && (
         <div style={{
-          position: "absolute", inset: "-4px", borderRadius: "50%",
-          border: "2px solid #7c6af7", pointerEvents: "none", zIndex: 0,
+          position: "absolute",
+          top: 0, left: 0,
+          width: w, height: h,
+          borderRadius: "50%",
+          border: "2px solid #7c6af7",
+          pointerEvents: "none",
           boxShadow: "0 0 10px rgba(124,106,247,0.4)",
         }} />
       )}
@@ -63,39 +86,16 @@ export default function ArchNode({
           onClick={(e) => { e.stopPropagation(); onDelete?.(node.id); }}
           style={{
             position: "absolute", top: "-10px", right: "-10px",
-            zIndex: 20, background: "transparent", border: "none",
-            cursor: "pointer", padding: 0,
+            zIndex: 20, background: "#1a1a2e", border: "1.5px solid #7c6af7",borderRadius: "50%",
+            cursor: "pointer", padding: "4px",width: "26px", height: "26px",        // CHANGED: fixed size for perfect circle
+      display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
           <img src="/src/assets/Button.svg" alt="delete" width="18" height="18" />
         </button>
       )}
 
-      {/* Purple click-to-connect dot */}
-      {shouldShow && (
-        <div
-          data-port="click"
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onPortMouseDown?.(node.id);
-          }}
-          style={{
-            position: "absolute",
-            bottom: "14px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "12px", height: "12px",
-            background: "#7c6af7",
-            border: "2px solid #fff",
-            borderRadius: "50%",
-            cursor: "crosshair",
-            zIndex: 20,
-          }}
-        />
-      )}
-
-      {/* Teal drag-to-connect dot */}
+      {/* Teal drag-to-connect dot — at top: h+8, inside h+60 wrapper */}
       {shouldShow && (
         <div
           data-port="drag"
@@ -106,17 +106,19 @@ export default function ArchNode({
             onPortDragStart?.(node.id, e);
             const onUp = () => {
               setIsDraggingPort(false);
+              setHovered(false);
               window.removeEventListener("mouseup", onUp);
             };
             window.addEventListener("mouseup", onUp);
           }}
           style={{
             position: "absolute",
-            bottom: "-34px",
+            top: h -10,
             left: "50%",
             transform: "translateX(-50%)",
-            width: "16px", height: "16px",
-            background: "#00d5be",
+            width: "16px",
+            height: "16px",
+            background: "#ffffff",
             border: "2.5px solid #fff",
             borderRadius: "50%",
             cursor: "crosshair",
@@ -127,20 +129,17 @@ export default function ArchNode({
       )}
 
       {/* Drop target ring */}
-      {isDragConnecting && hovered && (
+      {/* {isDragConnecting && hovered && (
         <div style={{
-          position: "absolute", inset: "-8px", borderRadius: "50%",
-          border: "2px dashed #7c6af7", pointerEvents: "none", zIndex: 0,
+          position: "absolute",
+          top: 0, left: 0,
+          width: w, height: h,
+          borderRadius: "50%",
+          border: "2px dashed #7c6af7",
+          pointerEvents: "none",
           opacity: 0.7,
         }} />
-      )}
-
-      <SVGNode
-        svgType={node.svgType}
-        label={node.title}
-        color={node.color}
-        iconColor={node.iconColor}
-      />
+      )} */}
     </div>
   );
 }

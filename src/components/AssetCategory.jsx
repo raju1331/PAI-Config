@@ -1,7 +1,7 @@
 import AssetItem from "./AssetItem.jsx";
 
 export default function AssetCategory({ category, isOpen, onToggle }) {
-  const { id, label, icon, iconType, iconColor, items } = category;
+  const { id, label, icon, iconType, iconColor, nodes } = category;
 
   return (
     <div className="asset-category">
@@ -26,7 +26,7 @@ export default function AssetCategory({ category, isOpen, onToggle }) {
       </div>
 
       <div className={`asset-items ${isOpen ? "asset-items--open" : ""}`}>
-        {items.map((item) => (
+        {nodes && Object.values(nodes).map((item) => (
           <AssetItem
             key={item.id}
             item={item}

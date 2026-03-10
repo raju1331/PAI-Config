@@ -1,42 +1,60 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import AssetCategory from "./AssetCategory.jsx";
-import { ASSET_NODES } from "../data/assets.js";
+// import { ASSET_NODES } from "../data/assets.js";
 
 export default function AssetsLibrary() {
+  const [assets, setAssets] = useState({});
   const [search, setSearch] = useState("");
   const [openCategories, setOpenCategories] = useState({ OmniverseModels: true });
 
+  
   const handleToggle = (id) =>
     setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  const categories = useMemo(() => {
-    return Object.entries(ASSET_NODES).map(([categoryKey, categoryData]) => {
-      const items = Object.values(categoryData.nodes).map((node) => ({
-        id: node.id,
-        name: node.label,
-        label: node.label,
-        description: node.description,
-        category: node.category,
-        allowedTargets: node.allowedTargets,
-        requiredBefore: node.requiredBefore,
-        maxOutgoing: node.maxOutgoing,
-        svgType: node.svgType,
-      }));
+  
+  useEffect(() => {
+  
+    fetch("http://localhost:5000/api/assets")
+      .then(res => res.json())
+      .then(data => {
+        console.log("API Response:", data); 
+        const { _id, ...categories } = data;
+        setAssets(categories);
+      })
+      .catch(err => {
+        console.error("Error fetching assets:", err);
+      });
+  
+  }, []);
+console.log("Assets state:", assets);
+const categories = useMemo(() => {
 
-      return {
-        id: categoryKey,
-        label: categoryData.label,
-        icon: categoryData.icon,
-        iconType: categoryData.iconType,
-        color: categoryData.color,
-        iconColor: categoryData.iconColor,
-        items: items.filter((item) =>
-          item.label.toLowerCase().includes(search.toLowerCase())
-        ),
+  const result = {};
+
+  Object.entries(assets).forEach(([categoryKey, categoryData]) => {
+
+    const nodes = Object.values(categoryData.nodes).filter((node) =>
+      node.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    if (search === "" || nodes.length > 0) {
+
+      result[categoryKey] = {
+        ...categoryData,
+        nodes: nodes.reduce((acc, node) => {
+          acc[node.id] = node;
+          return acc;
+        }, {})
       };
-    }).filter((cat) => search === "" || cat.items.length > 0);
-  }, [search]);
 
+    }
+
+  });
+
+  return result;
+
+}, [assets, search]);
+console.log("Categories for rendering:", categories);
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
@@ -53,16 +71,16 @@ export default function AssetsLibrary() {
       </div>
 
       <div className="sidebar__content">
-        {categories.map((cat) => (
+       {Object.entries(categories).map(([key, category]) => (
           <AssetCategory
-            key={cat.id}
-            category={cat}
-            isOpen={!!openCategories[cat.id]}
-            onToggle={() => handleToggle(cat.id)}
+            key={key}
+            category={{ id: key, ...category }}
+            isOpen={!!openCategories[key]}
+            onToggle={() => handleToggle(key)}
           />
         ))}
 
-        {categories.length === 0 && (
+        {Object.keys(categories).length === 0 && (
           <p style={{ padding: "16px", fontSize: "12px", color: "#4a5568", textAlign: "center" }}>
             No assets match "{search}"
           </p>

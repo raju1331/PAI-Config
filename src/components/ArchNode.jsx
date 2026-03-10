@@ -67,7 +67,7 @@ export default function ArchNode({
       </div>
 
       {/* Selection ring */}
-      {isSelected && (
+      {/* {isSelected && (
         <div style={{
           position: "absolute",
           top: 0, left: 0,
@@ -77,7 +77,7 @@ export default function ArchNode({
           pointerEvents: "none",
           boxShadow: "0 0 10px rgba(124,106,247,0.4)",
         }} />
-      )}
+      )} */}
 
       {/* Delete button */}
       {shouldShow && !isDragConnecting && (

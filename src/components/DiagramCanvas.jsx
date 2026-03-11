@@ -83,21 +83,12 @@ export default function DiagramCanvas({ nodes, setNodes }) {
             const allowedTargets = fromNode.allowedTargets || [];
             const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(target.assetId);
 
-            // NEW: maxOutgoing validation
-            const outgoingCount = connectionsRef.current.filter(
-              (conn) => conn.from === fromId
-            ).length;
-            const maxOutgoing = fromNode.maxOutgoing ?? Infinity;
-            const withinMax = outgoingCount < maxOutgoing;
-
-            if (!exists && isAllowed && withinMax) {
+            if (!exists && isAllowed) {
               setConnections((prev) => [...prev, { from: fromId, to: target.id }]);
             } else if (exists) {
               showToast("Connection already exists.", "warning");
             } else if (!isAllowed) {
               showToast(`${fromNode.title} cannot connect to ${target.title}.`, "warning");
-            } else if (!withinMax) {
-              showToast(`${fromNode.title} has reached its max outgoing connections (${maxOutgoing}).`, "warning");
             }
           }
         }
@@ -123,8 +114,8 @@ export default function DiagramCanvas({ nodes, setNodes }) {
   };
 
   const getCanvasData = () => ({
-    nodes: nodes.map(({ id, title, subtitle, icon, status, assetId, category, allowedTargets, requiredBefore, maxOutgoing }) => ({
-      id, title, subtitle, icon, status, assetId, category, allowedTargets, requiredBefore, maxOutgoing,
+    nodes: nodes.map(({ id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore }) => ({
+      id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore,
     })),
     connections,
     exportedAt: new Date().toISOString(),
@@ -160,7 +151,6 @@ export default function DiagramCanvas({ nodes, setNodes }) {
         setNodes((prev) => [...prev, {
           id: newNodeId,
           title: data.asset.label,
-          subtitle: data.asset.description,
           icon: data.asset.icon,
           color: data.color,
           iconColor: data.iconColor,
@@ -169,10 +159,8 @@ export default function DiagramCanvas({ nodes, setNodes }) {
           status: "Running",
           svgType: data.asset.svgType,
           assetId: data.asset.id,
-          category: data.asset.category,
           allowedTargets: data.asset.allowedTargets,
           requiredBefore: data.asset.requiredBefore,
-          maxOutgoing: data.asset.maxOutgoing,
         }]);
       }
     } catch (error) {
@@ -203,19 +191,12 @@ export default function DiagramCanvas({ nodes, setNodes }) {
       const allowedTargets = fromNode?.allowedTargets || [];
       const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(toNode?.assetId);
 
-      // NEW: maxOutgoing validation
-      const outgoingCount = connections.filter((conn) => conn.from === connectingFromId).length;
-      const maxOutgoing = fromNode?.maxOutgoing ?? Infinity;
-      const withinMax = outgoingCount < maxOutgoing;
-
-      if (!exists && isAllowed && withinMax) {
+      if (!exists && isAllowed) {
         setConnections((prev) => [...prev, { from: connectingFromId, to: nodeId }]);
       } else if (exists) {
         showToast("Connection already exists.", "warning");
       } else if (!isAllowed) {
         showToast(`${fromNode?.title} cannot connect to ${toNode?.title}.`, "warning");
-      } else if (!withinMax) {
-        showToast(`${fromNode?.title} has reached its max outgoing connections (${maxOutgoing}).`, "warning");
       }
 
       setConnectingFromId(null);
@@ -225,7 +206,6 @@ export default function DiagramCanvas({ nodes, setNodes }) {
   const isAIAgentNode = (nodeId) => {
     const node = nodes.find((n) => n.id === nodeId);
     return node?.svgType === "svg3" ||
-      node?.category === "NODE_TYPES.AI_AGENT" ||
       node?.assetId === "claude_opus_4_6";
   };
 

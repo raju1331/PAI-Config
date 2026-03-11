@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import AssetCategory from "./AssetCategory.jsx";
+import CreateNodeModal from "./CreateNodeModal.jsx"; 
 // import { ASSET_NODES } from "../data/assets.js";
 
 export default function AssetsLibrary() {
   const [assets, setAssets] = useState({});
   const [search, setSearch] = useState("");
   const [openCategories, setOpenCategories] = useState({ OmniverseModels: true });
+  const [nodeModalOpen, setNodeModalOpen] = useState(false); // controls CreateNodeModal visibility
 
   
   const handleToggle = (id) =>
@@ -26,6 +28,19 @@ export default function AssetsLibrary() {
       });
   
   }, []);
+
+    useEffect(() => {
+    fetch("http://localhost:5000/api/properties")
+      .then(res => res.json())
+      .then(data => {
+        console.log("API Response:", data); 
+      })
+      .catch(err => {
+        console.error("Error fetching properties:", err);
+      });
+  
+  }, []);
+  
 console.log("Assets state:", assets);
 const categories = useMemo(() => {
 
@@ -57,6 +72,12 @@ const categories = useMemo(() => {
 console.log("Categories for rendering:", categories);
   return (
     <aside className="sidebar">
+      <div className="sidebar__top">
+        <button className="pai-trigger-btn" onClick={() => setNodeModalOpen(true)}>
+          + Create / Import Capabilities
+        </button>
+         
+      </div>
       <div className="sidebar__header">
         <div className="sidebar__search">
           <input
@@ -71,6 +92,7 @@ console.log("Categories for rendering:", categories);
       </div>
 
       <div className="sidebar__content">
+        <CreateNodeModal open={nodeModalOpen} onClose={() => setNodeModalOpen(false)} />
        {Object.entries(categories).map(([key, category]) => (
           <AssetCategory
             key={key}

@@ -70,6 +70,16 @@ const categories = useMemo(() => {
 
 }, [assets, search]);
 console.log("Categories for rendering:", categories);
+  // derive a flat list of all node IDs from the raw `assets` object so
+  // that the modal dropdowns always contain every defined node, even when
+  // the user has a search filter applied in the sidebar.  Using `assets`
+  // instead of `categories` also makes the dependency list simpler.
+  const allNodeIds = useMemo(() => {
+    return Object.values(assets).flatMap((cat) =>
+      Object.keys(cat.nodes || {})
+    );
+  }, [assets]);
+
   return (
     <aside className="sidebar">
       <div className="sidebar__top">
@@ -92,7 +102,11 @@ console.log("Categories for rendering:", categories);
       </div>
 
       <div className="sidebar__content">
-        <CreateNodeModal open={nodeModalOpen} onClose={() => setNodeModalOpen(false)} />
+        <CreateNodeModal
+          open={nodeModalOpen}
+          onClose={() => setNodeModalOpen(false)}
+          allNodeIds={allNodeIds}
+        />
        {Object.entries(categories).map(([key, category]) => (
           <AssetCategory
             key={key}

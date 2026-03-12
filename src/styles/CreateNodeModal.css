@@ -57,6 +57,16 @@
   animation: fadeIn 0.2s ease;
 }
 
+.pai-btn-properties{
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.867), rgba(79, 142, 247, 0.667));
+    border-color: rgba(79, 142, 247, 0.533);
+    box-shadow: rgba(79, 142, 247, 0.2) 0px 4px 16px;
+    padding: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+}
+
 /* ─── Modal Container ────────────────────────────────────── */
 .pai-modal {
   position: fixed;
@@ -365,14 +375,16 @@
 }
 
 .pai-btn--ghost {
-  background: transparent;
+  background: linear-gradient(135deg, rgba(79, 142, 247, 0.867), rgba(79, 142, 247, 0.667));
+  border-color: rgba(79, 142, 247, 0.533);
+  box-shadow: rgba(79, 142, 247, 0.2) 0px 4px 16px;
   border-color: var(--border-mid);
-  color: #666680;
+  color: #fff;
 }
 
 .pai-btn--ghost:hover {
   border-color: var(--border-hover);
-  color: #9999b0;
+  color: #fff;
 }
 
 .pai-btn--primary {

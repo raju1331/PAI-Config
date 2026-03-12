@@ -1,19 +1,23 @@
 import { useState, useEffect } from "react";
 
 export default function Property({ node, onClose, onSave }) {
+
   const [config, setConfig] = useState(null);
   const [values, setValues] = useState({});
+  const [initialValues, setInitialValues] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // ── Fetch from backend every time a different node is double-clicked
+  // Fetch properties when node changes
   useEffect(() => {
+
     if (!node) return;
 
     setLoading(true);
     setError(null);
     setConfig(null);
     setValues({});
+    setInitialValues({});
 
     fetch(`http://localhost:5000/api/properties/${node.assetId || node.id}`)
       .then((res) => {
@@ -21,45 +25,88 @@ export default function Property({ node, onClose, onSave }) {
         return res.json();
       })
       .then((data) => {
+
         setConfig(data);
-        // Set first option as default for every section
+
+        // Default values
         const defaults = {};
+
         data.sections.forEach((section) => {
           defaults[section.title] = section.options[0];
         });
+
         setValues(defaults);
+        setInitialValues(defaults); // store original values
+
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
 
   }, [node?.assetId]);
 
-if (!node) return null;
+  if (!node) return null;
 
-console.log("node object:", node);
-console.log("assetId:", node.assetId); 
+  console.log("node object:", node);
+  console.log("assetId:", node.assetId);
+
 
   const handleChange = (sectionTitle, value) =>
     setValues((prev) => ({ ...prev, [sectionTitle]: value }));
 
-  const handleSave = () => {
-    onSave?.({ assetId: node.assetId, nodeId: node.id, properties: values });
+const handleSave = async () => {
+
+  // Check if any property changed
+  const hasChanges = Object.keys(values).some(
+    (key) => values[key] !== initialValues[key]
+  );
+
+  if (!hasChanges) {
+    console.log("No changes detected. API call skipped.");
     onClose?.();
+    return;
+  }
+
+  const payload = {
+    nodeId: node.id,
+    assetId: node.assetId,
+    properties: values
   };
 
+  console.log("Payload to backend:", payload);
+
+  try {
+
+    const res = await fetch("http://localhost:5000/api/properties/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    console.log("Backend response:", data);
+
+  } catch (error) {
+    console.error("Error saving properties:", error);
+  }
+
+  onSave?.(payload);
+  onClose?.();
+};
+
   return (
-<div style={{
-  position: "fixed",
-  top: "52px", right: 0,
-  width: "340px",
-  height: "calc(100vh - 52px)",
-  background: "#000000",
-  borderLeft: "1px solid #2a2a3d",
-  zIndex: 1000,
-  display: "flex",
-  flexDirection: "column",
-  boxShadow: "-4px 0 24px rgba(0,0,0,0.5)",
-}}>
+    <div style={{
+      position: "fixed",
+      top: "52px", right: 0,
+      width: "340px",
+      height: "calc(100vh - 52px)",
+      background: "#000000",
+      borderLeft: "1px solid #2a2a3d",
+      zIndex: 1000,
+      display: "flex",
+      flexDirection: "column",
+      boxShadow: "-4px 0 24px rgba(0,0,0,0.5)",
+    }}>
 
       {/* Header */}
       <div style={{
@@ -73,15 +120,23 @@ console.log("assetId:", node.assetId);
         <span style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: "600" }}>
           Property Panel
         </span>
-        <button onClick={onClose} style={{
-          background: "transparent", border: "none",
-          color: "#6b7280", cursor: "pointer",
-          fontSize: "18px", lineHeight: 1, padding: "2px 6px",
-        }}
-          onMouseEnter={(e) => e.currentTarget.style.color = "#e2e8f0"}
-          onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
-        >✕</button>
+
+        <button
+          onClick={onClose}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#6b7280",
+            cursor: "pointer",
+            fontSize: "18px",
+            lineHeight: 1,
+            padding: "2px 6px",
+          }}
+        >
+          ✕
+        </button>
       </div>
+
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 20px" }}>
@@ -89,12 +144,16 @@ console.log("assetId:", node.assetId);
         {/* Loading */}
         {loading && (
           <div style={{
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            height: "200px", gap: "12px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "200px",
+            gap: "12px",
           }}>
             <div style={{
-              width: "28px", height: "28px",
+              width: "28px",
+              height: "28px",
               border: "3px solid #2a2a3d",
               borderTop: "3px solid #7c6af7",
               borderRadius: "50%",
@@ -110,7 +169,8 @@ console.log("assetId:", node.assetId);
         {/* Error */}
         {error && !loading && (
           <div style={{
-            padding: "16px", marginTop: "8px",
+            padding: "16px",
+            marginTop: "8px",
             background: "rgba(252,129,74,0.08)",
             border: "1px solid rgba(252,129,74,0.3)",
             borderRadius: "8px",
@@ -121,71 +181,55 @@ console.log("assetId:", node.assetId);
           </div>
         )}
 
-        {/* No config */}
-        {!loading && !error && !config && (
-          <div style={{
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            height: "200px", gap: "8px",
-          }}>
-            <span style={{ fontSize: "24px" }}>⚙️</span>
-            <p style={{ color: "#6b7280", fontSize: "13px", textAlign: "center" }}>
-              No configurable properties available for this asset.
-            </p>
-          </div>
-        )}
-
         {/* Sections */}
         {!loading && !error && config && (
           <>
-            {/* Asset label */}
             <div style={{ marginBottom: "16px" }}>
               <span style={{
-                fontSize: "11px", color: "#7c6af7",
-                fontWeight: "500", textTransform: "uppercase",
+                fontSize: "11px",
+                color: "#7c6af7",
+                fontWeight: "500",
+                textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}>
-                {config.nodeName}
+                {config.label}
               </span>
             </div>
 
             {config.sections.map((section, idx) => (
               <div key={idx}>
-                <div style={{ marginBottom: "20px" }}>
 
-                  {/* Section title */}
+                <div style={{ marginBottom: "20px" }}>
                   <p style={{
-                    color: "#9ca3af", fontSize: "12px",
-                    marginBottom: "10px", marginTop: 0,
-                    letterSpacing: "0.03em",
+                    color: "#9ca3af",
+                    fontSize: "12px",
+                    marginBottom: "10px",
                   }}>
                     {section.title}
                   </p>
 
-                  {/* Radio */}
+                  {/* RADIO */}
                   {section.type === "radio" && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
                       {section.options.map((opt) => (
                         <label key={opt}
                           onClick={() => handleChange(section.title, opt)}
                           style={{
-                            display: "flex", alignItems: "center",
-                            gap: "7px", cursor: "pointer",
-                            color: "#e2e8f0", fontSize: "13px",
-                            userSelect: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "7px",
+                            cursor: "pointer",
+                            color: "#e2e8f0",
+                            fontSize: "13px",
                           }}>
                           <div style={{
-                            width: "16px", height: "16px",
+                            width: "16px",
+                            height: "16px",
                             borderRadius: "50%",
                             border: `2px solid ${values[section.title] === opt ? "#7c6af7" : "#4b5563"}`,
                             background: values[section.title] === opt
                               ? "radial-gradient(circle, #7c6af7 45%, transparent 50%)"
                               : "transparent",
-                            flexShrink: 0,
-                            transition: "border-color 0.15s",
-                            boxShadow: values[section.title] === opt
-                              ? "0 0 0 3px rgba(124,106,247,0.15)"
-                              : "none",
                           }} />
                           {opt}
                         </label>
@@ -193,52 +237,40 @@ console.log("assetId:", node.assetId);
                     </div>
                   )}
 
-                  {/* Dropdown */}
+                  {/* DROPDOWN */}
                   {section.type === "dropdown" && (
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={values[section.title] || section.options[0]}
-                        onChange={(e) => handleChange(section.title, e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "9px 36px 9px 12px",
-                          background: "#1a1a2e",
-                          border: "1px solid #2a2a3d",
-                          borderRadius: "6px",
-                          color: "#e2e8f0", fontSize: "13px",
-                          cursor: "pointer",
-                          appearance: "none",
-                          WebkitAppearance: "none",
-                          outline: "none",
-                        }}
-                        onFocus={(e) => e.currentTarget.style.borderColor = "#7c6af7"}
-                        onBlur={(e) => e.currentTarget.style.borderColor = "#2a2a3d"}
-                      >
-                        {section.options.map((opt) => (
-                          <option key={opt} value={opt}
-                            style={{ background: "#1a1a2e", color: "#e2e8f0" }}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                      <div style={{
-                        position: "absolute", right: "12px",
-                        top: "50%", transform: "translateY(-50%)",
-                        pointerEvents: "none",
-                        color: "#6b7280", fontSize: "10px",
-                      }}>▼</div>
-                    </div>
+                    <select
+                      value={values[section.title] || section.options[0]}
+                      onChange={(e) => handleChange(section.title, e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 12px",
+                        background: "#1a1a2e",
+                        border: "1px solid #2a2a3d",
+                        borderRadius: "6px",
+                        color: "#e2e8f0",
+                        fontSize: "13px",
+                      }}
+                    >
+                      {section.options.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
                   )}
+
                 </div>
 
-                {/* Divider */}
                 {idx < config.sections.length - 1 && (
                   <div style={{ borderBottom: "1px solid #2a2a3d", marginBottom: "20px" }} />
                 )}
+
               </div>
             ))}
           </>
         )}
+
       </div>
 
       {/* Footer */}
@@ -248,28 +280,24 @@ console.log("assetId:", node.assetId);
           borderTop: "1px solid #2a2a3d",
           display: "flex",
           justifyContent: "flex-end",
-          flexShrink: 0,
         }}>
-          <button onClick={handleSave} style={{
-            padding: "8px 28px",
-            background: "#1e293b",
-            color: "#e2e8f0",
-            border: "1px solid #2a2a3d",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "13px", fontWeight: "500",
-          }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#2d3748";
-              e.currentTarget.style.borderColor = "#7c6af7";
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "8px 28px",
+              background: "#1e293b",
+              color: "#e2e8f0",
+              border: "1px solid #2a2a3d",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "13px",
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#1e293b";
-              e.currentTarget.style.borderColor = "#2a2a3d";
-            }}
-          >Save</button>
+          >
+            Save
+          </button>
         </div>
       )}
+
     </div>
   );
 }

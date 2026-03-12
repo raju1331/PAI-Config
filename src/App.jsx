@@ -15,6 +15,12 @@ export default function App() {
     setNodeProperties((prev) => ({ ...prev, [nodeId]: properties }));
   };
 
+  const handleLoadWorkflow = (restoredNodes, restoredConnections) => {
+    setNodes(restoredNodes);
+    setConnections(restoredConnections);
+    setNodeProperties({});
+  };
+
   return (
     <div className="app">
       <Header
@@ -23,6 +29,7 @@ export default function App() {
         nodes={nodes}
         connections={connections}
         nodeProperties={nodeProperties}
+        onLoadWorkflow={handleLoadWorkflow}
       />
       <div className="main-layout">
         <AssetsLibrary />
@@ -32,6 +39,7 @@ export default function App() {
           connections={connections}
           setConnections={setConnections}
           onPropertySave={handlePropertySave}
+          onLoadWorkflow={handleLoadWorkflow}
         />
       </div>
     </div>

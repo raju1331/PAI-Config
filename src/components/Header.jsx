@@ -3,13 +3,14 @@ import paiLogo from "../assets/pai.svg";
 import saveIcon from "../assets/icon.svg";
 import sidebarIcon from "../assets/iconoir_sidebar-collapse.svg";
 import backIcon from "../assets/lsicon_left-filled.svg";
+import { saveWorkflowData } from "../data/savedata.js";
 
-export default function Header({ activeTab, onTabChange, nodes = [], connections = [], nodeProperties = {} }) {
+export default function Header({ activeTab, onTabChange, nodes = [], connections = [], nodeProperties = {}, onLoadWorkflow }) {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
+   const showToast = (message, type = "success") => {
+   setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
@@ -36,6 +37,11 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
       })),
     };
 
+    // ── Step 1: Save to localStorage via savedata.js
+    saveWorkflowData(nodes, connections, nodeProperties);
+    console.log("💾 Saved to localStorage");
+
+    // ── Step 2: Save to backend
     setSaving(true);
     try {
       const res = await fetch("http://localhost:5000/api/workflow/save", {
@@ -45,17 +51,20 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Save failed");
-      showToast("Workflow saved successfully!", "success");
     } catch (err) {
-      showToast(err.message || "Failed to save workflow.", "error");
+      console.warn("Backend save failed (localStorage still saved):", err.message);
     } finally {
       setSaving(false);
     }
+
+    // ── Step 3: Auto-refresh page after save
+    // setTimeout(() => {
+    //   window.location.reload();
+    // }, 300);
   };
 
   return (
     <>
-      {/* Toast */}
       {toast && (
         <div style={{
           position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
@@ -92,7 +101,11 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
             className="btn-secondary"
             onClick={handleSave}
             disabled={saving}
-            style={{ opacity: saving ? 0.7 : 1, cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+            style={{
+              opacity: saving ? 0.7 : 1,
+              cursor: saving ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: "6px"
+            }}
           >
             {saving ? (
               <>
@@ -114,9 +127,7 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
           </button>
 
           {/* Launch button */}
-          <button className="btn-primary">
-            ▶ Launch
-          </button>
+          <button className="btn-primary">▶ Launch</button>
         </div>
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

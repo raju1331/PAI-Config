@@ -1,110 +1,453 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import ArchNode from "./ArchNode.jsx";
-// import PropertiesPanel from "./PropertiesPanel.jsx";
+import Property from "./Property.jsx";
+import { loadWorkflowData } from "../data/savedata.js";
 
-export default function DiagramCanvas({ nodes, setNodes }) {
+export default function DiagramCanvas({ nodes, setNodes, connections, setConnections, onPropertySave, onLoadWorkflow }) {
   const [selectedNodeId, setSelectedId] = useState(null);
-  const [dragging, setDragging]       = useState(null); // { nodeId, offsetX, offsetY }
+  const [dragging, setDragging] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [selectedNodeForProps, setSelectedNodeForProps] = useState(null);
+  const [connectingFromId, setConnectingFromId] = useState(null);
+  const [dragConnection, setDragConnection] = useState(null);
 
+  const canvasRef = useRef(null);
+  const draggingRef = useRef(null);
+  const dragConnectionRef = useRef(null);
+  const nodesRef = useRef(nodes);
+  const connectionsRef = useRef(connections);
+
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { connectionsRef.current = connections; }, [connections]);
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (draggingRef.current) {
+        const { nodeId, offsetX, offsetY } = draggingRef.current;
+        setNodes((prev) =>
+          prev.map((n) =>
+            n.id === nodeId
+              ? { ...n, x: e.clientX - offsetX, y: e.clientY - offsetY }
+              : n
+          )
+        );
+      }
+      if (dragConnectionRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const updated = {
+          ...dragConnectionRef.current,
+          mouseX: e.clientX - rect.left,
+          mouseY: e.clientY - rect.top,
+        };
+        dragConnectionRef.current = updated;
+        setDragConnection({ ...updated });
+      }
+    };
+
+    const onMouseUp = (e) => {
+      draggingRef.current = null;
+      setDragging(null);
+
+      if (dragConnectionRef.current) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+          const sizes = {
+            svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
+            svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
+          };
+          const fromId = dragConnectionRef.current.fromId;
+          const fromNode = nodesRef.current.find((n) => n.id === fromId);
+
+          const target = nodesRef.current.find((n) => {
+            if (n.id === fromId) return false;
+            const s = sizes[n.svgType] || { w: 88, h: 88 };
+            return (
+              mx >= n.x - 10 &&
+              mx <= n.x + s.w + 10 &&
+              my >= n.y - 10 &&
+              my <= n.y + s.h + 40
+            );
+          });
+
+          if (target && fromNode) {
+            const exists = connectionsRef.current.some(
+              (conn) => conn.from === fromId && conn.to === target.id
+            );
+            const allowedTargets = fromNode.allowedTargets || [];
+            const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(target.assetId);
+
+            if (!exists && isAllowed) {
+              setConnections((prev) => [...prev, { from: fromId, to: target.id }]);
+            } else if (exists) {
+              showToast("Connection already exists.", "warning");
+            } else if (!isAllowed) {
+              showToast(`${fromNode.title} cannot connect to ${target.title}.`, "warning");
+            }
+          }
+        }
+        dragConnectionRef.current = null;
+        setDragConnection(null);
+        setConnectingFromId(null);
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [setNodes, setConnections]);
+
+  const handleNodeDoubleClick = (node) => setSelectedNodeForProps(node);
+
+  const showToast = (message, type = "warning") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const getCanvasData = () => ({
+    nodes: nodes.map(({ id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore }) => ({
+      id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore,
+    })),
+    connections,
+    exportedAt: new Date().toISOString(),
+  });
 
   const handleNodeMouseDown = (e, nodeId) => {
     e.stopPropagation();
     setSelectedId(nodeId);
     const node = nodes.find((n) => n.id === nodeId);
-    setDragging({ nodeId, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y });
+    const d = { nodeId, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y };
+    draggingRef.current = d;
+    setDragging(d);
   };
 
-  const handleMouseMove = (e) => {
-    if (!dragging) return;
-    const { nodeId, offsetX, offsetY } = dragging;
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === nodeId
-          ? { ...n, x: e.clientX - offsetX, y: e.clientY - offsetY }
-          : n
-      )
-    );
+  const handleBgClick = () => {
+    setSelectedId(null);
+    setConnectingFromId(null);
+    dragConnectionRef.current = null;
+    setDragConnection(null);
   };
 
-  const handleMouseUp  = () => setDragging(null);
-  const handleBgClick  = () => setSelectedId(null);
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    
     try {
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
-      
       if (data.type === "asset") {
-        // Get canvas position
-        const canvasWrapper = e.currentTarget.querySelector(".canvas-wrapper");
-        const rect = canvasWrapper?.getBoundingClientRect();
-        const x = e.clientX - (rect?.left || 0);
-        const y = e.clientY - (rect?.top || 0);
-
-        // Create a new node from the dropped asset
-        const newNodeId = Math.max(...nodes.map(n => typeof n.id === 'number' ? n.id : 0), 0) + 1;
-        const newNode = {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const newNodeId = Math.max(...nodes.map(n => typeof n.id === "number" ? n.id : 0), 0) + 1;
+        setNodes((prev) => [...prev, {
           id: newNodeId,
-          title: data.asset.name,
-          subtitle: data.asset.tag,
+          title: data.asset.label,
           icon: data.asset.icon,
           color: data.color,
           iconColor: data.iconColor,
-          x: Math.max(0, x - 75), // Center the node at drop point
-          y: Math.max(0, y - 55),
+          x: Math.max(0, x - 44),
+          y: Math.max(0, y - 44),
           status: "Running",
-        };
-
-        setNodes((prev) => [...prev, newNode]);
+          svgType: data.asset.svgType,
+          assetId: data.asset.id,
+          allowedTargets: data.asset.allowedTargets,
+          requiredBefore: data.asset.requiredBefore,
+        }]);
       }
     } catch (error) {
       console.error("Error parsing dropped data:", error);
     }
   };
 
+  const handleDeleteNode = (nodeId) => {
+    setNodes((prev) => prev.filter((n) => n.id !== nodeId));
+    setConnections((prev) => prev.filter((conn) => conn.from !== nodeId && conn.to !== nodeId));
+    setSelectedId(null);
+  };
+
+  const handlePortMouseDown = (nodeId) => setConnectingFromId(nodeId);
+
+  const handleConnect = (nodeId) => {
+    if (connectingFromId !== null && connectingFromId !== nodeId) {
+      const fromNode = nodes.find((n) => n.id === connectingFromId);
+      const toNode = nodes.find((n) => n.id === nodeId);
+      const exists = connections.some((conn) => conn.from === connectingFromId && conn.to === nodeId);
+      const allowedTargets = fromNode?.allowedTargets || [];
+      const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(toNode?.assetId);
+
+      if (!exists && isAllowed) {
+        setConnections((prev) => [...prev, { from: connectingFromId, to: nodeId }]);
+      } else if (exists) {
+        showToast("Connection already exists.", "warning");
+      } else if (!isAllowed) {
+        showToast(`${fromNode?.title} cannot connect to ${toNode?.title}.`, "warning");
+      }
+      setConnectingFromId(null);
+    }
+  };
+
+  const isAIAgentNode = (nodeId) => {
+    const node = nodes.find((n) => n.id === nodeId);
+    return node?.svgType === "svg3" || node?.assetId === "claude_opus_4_6";
+  };
+
+  const handlePortDragStart = (nodeId, e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const node = nodesRef.current.find((n) => n.id === nodeId);
+    if (!node) return;
+    const sizes = {
+      svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
+      svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
+    };
+    const s = sizes[node.svgType] || { w: 88, h: 88 };
+    const dc = {
+      fromId: nodeId,
+      fromX: node.x + s.w / 2,
+      fromY: node.y + s.h,
+      mouseX: clientX - rect.left,
+      mouseY: clientY - rect.top,
+    };
+    dragConnectionRef.current = dc;
+    setDragConnection(dc);
+  };
+
+  const drawConnections = () => {
+    const paths = [];
+    connections.forEach((conn, i) => {
+      const fromNode = nodes.find((n) => n.id === conn.from);
+      const toNode = nodes.find((n) => n.id === conn.to);
+      if (!fromNode || !toNode) return;
+      const x1 = fromNode.x + 44, y1 = fromNode.y + 44;
+      const x2 = toNode.x + 44, y2 = toNode.y + 44;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const radius = 44;
+      const startX = x1 + Math.cos(angle) * radius;
+      const startY = y1 + Math.sin(angle) * radius;
+      const endX = x2 - Math.cos(angle) * radius;
+      const endY = y2 - Math.sin(angle) * radius;
+      const isDotted = isAIAgentNode(conn.from) || isAIAgentNode(conn.to);
+      paths.push(
+        <g key={`conn-${i}`}>
+          <circle cx={startX} cy={startY} r="4" fill="#7c6af7" />
+          <line
+            x1={startX} y1={startY} x2={endX} y2={endY}
+            stroke="#7c6af7" strokeWidth="1.5"
+            strokeDasharray={isDotted ? "6 4" : undefined}
+            markerEnd="url(#arrowhead)"
+          />
+        </g>
+      );
+    });
+
+    if (dragConnection) {
+      const isDotted = isAIAgentNode(dragConnection.fromId);
+      paths.push(
+        <g key="drag-preview" style={{ pointerEvents: "none" }}>
+          <circle cx={dragConnection.fromX} cy={dragConnection.fromY} r="5" fill="#7c6af7" />
+          <line
+            x1={dragConnection.fromX} y1={dragConnection.fromY}
+            x2={dragConnection.mouseX} y2={dragConnection.mouseY}
+            stroke="#7c6af7" strokeWidth="1.5" opacity="0.75"
+            strokeDasharray={isDotted ? "6 4" : "4 3"}
+            markerEnd="url(#arrowhead)"
+          />
+        </g>
+      );
+    }
+    return paths;
+  };
+
+  const exportCanvasAsJSON = () => {
+    const blob = new Blob([JSON.stringify(getCanvasData(), null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `canvas-export-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Load workflow from savedata.js
+  const handleLoadExistingWorkflow = () => {
+  const workflow = loadWorkflowData();
+
+  if (!workflow) {
+    showToast("No saved workflow found. Build and save one first.", "warning");
+    return;
+  }
+
+  // Restore nodes
+  const restoredNodes = workflow.nodes.map((n) => ({
+    id: typeof n.id === "string" && !isNaN(n.id) ? Number(n.id) : n.id,
+    title: n.title,
+    icon: n.icon,
+    iconType: n.iconType || "img",
+    color: n.color,
+    iconColor: n.iconColor,
+    svgType: n.svgType || "svg1",
+    assetId: n.assetId,
+    category: n.category,
+    allowedTargets: n.allowedTargets || [],
+    requiredBefore: n.requiredBefore || [],
+    maxOutgoing: n.maxOutgoing,
+    x: n.x,
+    y: n.y,
+    status: n.status || "Running",
+  }));
+
+  // Restore connections — savedata.js stores as { from, to }
+  const restoredConnections = (workflow.connections || []).map((e) => ({
+    from: typeof e.from === "string" && !isNaN(e.from) ? Number(e.from) : e.from,
+    to: typeof e.to === "string" && !isNaN(e.to) ? Number(e.to) : e.to,
+  }));
+
+  setNodes(restoredNodes);
+  setConnections(restoredConnections);
+  showToast(`✅ Workflow restored! ${restoredNodes.length} nodes, ${restoredConnections.length} connections.`, "success");
+};
+
   return (
-    <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-      <div className="canvas-area">
+    <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: "column" }}>
+
+      {connectingFromId && (
+        <div style={{
+          position: "fixed", top: "60px", left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, padding: "8px 16px", borderRadius: "8px",
+          background: "#7c6af7", color: "white", fontSize: "12px", pointerEvents: "none",
+        }}>
+          Now click another node to connect
+        </div>
+      )}
+
+      {dragConnection && (
+        <div style={{
+          position: "fixed", top: "60px", left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, padding: "8px 16px", borderRadius: "20px",
+          background: "rgba(124,106,247,0.15)", border: "1px solid #7c6af7",
+          color: "#a78bfa", fontSize: "12px", pointerEvents: "none",
+        }}>
+          Drop onto a node to connect
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
+          padding: "12px 20px", borderRadius: "8px", fontSize: "13px",
+          fontWeight: "500", color: "white", maxWidth: "360px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          background: toast.type === "success" ? "#2f855a" : "#b7791f",
+          borderLeft: `4px solid ${toast.type === "success" ? "#48bb78" : "#f6ad55"}`,
+        }}>
+          {toast.message}
+        </div>
+      )}
+
+      {/* ── Toolbar bar with Existing Workflow + Export JSON */}
+      <div style={{
+        padding: "8px 16px", borderBottom: "1px solid #2a2a3d",
+        display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14",
+      }}>
+        {/* Existing Workflow button */}
+        <button
+          onClick={handleLoadExistingWorkflow}
+          style={{
+            padding: "4px 12px", fontSize: "11px",
+            background: "transparent", color: "#a78bfa",
+            border: "1px solid #7c6af7",
+            borderRadius: "4px", cursor: "pointer",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "rgba(124,106,247,0.1)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+        >
+        Existing Workflow
+        </button>
+
+        {/* Export JSON button */}
+        <button
+          onClick={exportCanvasAsJSON}
+          style={{
+            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
+            background: "#4f8ef7", color: "white", border: "none",
+            borderRadius: "4px", cursor: "pointer",
+          }}
+        >
+          Export JSON
+        </button>
+      </div>
+
+      <div className="canvas-area" style={{ flex: 1 }}>
         <div
+          ref={canvasRef}
           className="canvas-wrapper"
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
           onClick={handleBgClick}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
+          style={{
+            position: "relative", width: "100%", height: "100%", minHeight: "600px",
+            cursor: dragConnection ? "crosshair" : "default",
+            userSelect: "none",
+          }}
         >
           {nodes.length === 0 && (
             <div className="canvas-empty">
               <div className="canvas-empty__icon">🗺️</div>
-              <p className="canvas-empty__text">Drag and drop items here to configure</p>
-              <p className="canvas-empty__sub">Use an existing template</p>
+              <p className="canvas-empty__text">Your canvas is empty</p>
+              <p className="canvas-empty__sub">Drag assets from the left panel to begin</p>
             </div>
           )}
 
-          {/* Architecture nodes */}
+          <svg className="connections-svg" aria-hidden="true"
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+            <defs>
+              <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#7c6af7" />
+              </marker>
+            </defs>
+            {drawConnections()}
+          </svg>
+
           {nodes.map((node) => (
             <ArchNode
               key={node.id}
               node={node}
               isSelected={node.id === selectedNodeId}
               onMouseDown={handleNodeMouseDown}
+              onDelete={handleDeleteNode}
+              onConnect={handleConnect}
+              onDoubleClick={handleNodeDoubleClick}
+              isConnecting={connectingFromId !== null && connectingFromId !== node.id}
+              onPortMouseDown={handlePortMouseDown}
+              isDragConnecting={!!dragConnection && dragConnection.fromId !== node.id}
+              onPortDragStart={handlePortDragStart}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Properties panel ── */}
-      {/* <PropertiesPanel
-        selectedNode={selectedNode}
-        nodeCount={nodes.length}
-        connectionCount={INITIAL_CONNECTIONS.length}
-      /> */}
+      <Property
+        node={selectedNodeForProps}
+        onClose={() => setSelectedNodeForProps(null)}
+        onSave={(props) => {
+          onPropertySave?.({
+            nodeId: selectedNodeForProps?.id,
+            assetId: props.assetId,
+            properties: props.properties,
+          });
+        }}
+      />
     </div>
   );
 }

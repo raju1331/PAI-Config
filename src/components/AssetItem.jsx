@@ -1,14 +1,14 @@
 const CATEGORY_ICONS = {
-  "ItemIcon": "/src/assets/model.svg",
-  "sub-templates": "/src/assets/subtemp.svg",
-  "functional-building-blocks": "/src/assets/functionicon.svg",
-  "connectors": "/src/assets/connector.svg",
-  "ai-agents": "/src/assets/aiagent.svg",
-  "repositories": "/src/assets/repos.svg",
+  "OmniverseModels": "/src/assets/modelss.svg",
+  "Simulation": "/src/assets/subtemp.svg",
+  "AI_Agents": "/src/assets/ai.svg",
+  "Connectors": "/src/assets/Link.svg",
+  "Functional": "/src/assets/functional.svg",
+  "Repository": "/src/assets/repos.svg",
 };
 
 export default function AssetItem({ item, catIconColor, catId }) {
-  const iconSrc = CATEGORY_ICONS[catId] || "/src/assets/model.svg";
+  const iconSrc = CATEGORY_ICONS[catId] || "/src/assets/modelss.svg";
 
   const handleDragStart = (e) => {
     e.dataTransfer.effectAllowed = "move";
@@ -16,18 +16,25 @@ export default function AssetItem({ item, catIconColor, catId }) {
       "application/json",
       JSON.stringify({
         type: "asset",
-        asset: { id: item.id, name: item.name, tag: item.tag },
+        asset: {
+          id: item.id,
+          name: item.label,
+          label: item.label,
+          allowedTargets: item.allowedTargets,
+          requiredBefore: item.requiredBefore,
+          svgType: item.svgType,
+        },
         iconColor: catIconColor,
       })
     );
   };
 
   return (
-    <div className="asset-item" draggable title={`Drag to canvas: ${item.name}`} onDragStart={handleDragStart}>
+    <div className="asset-item" draggable title={`Drag to canvas: ${item.label}`} onDragStart={handleDragStart}>
       <div className="asset-item__icon">
         <img src={iconSrc} alt="" className="asset-item__icon-img" />
       </div>
-      <span className="asset-item__name">{item.name}</span>
+      <span className="asset-item__name">{item.label}</span>
       <button className="asset-item__add-btn" onClick={(e) => e.stopPropagation()}>+</button>
     </div>
   );

@@ -1,34 +1,46 @@
 import { useState } from "react";
-
-// ── Global styles ──────────────────────────────────────────────────────────────
 import "./styles/global.css";
 import "./App.css";
+import Header from "./components/Header.jsx";
+import AssetsLibrary from "./components/AssetsLibrary.jsx";
+import DiagramCanvas from "./components/DiagramCanvas.jsx";
 
-// ── Components ─────────────────────────────────────────────────────────────────
-import Header         from "./components/Header.jsx";
-import AssetsLibrary  from "./components/AssetsLibrary.jsx";
-import DiagramCanvas  from "./components/DiagramCanvas.jsx";
-
-/**
- * App
- * Root component — composes the three main layout sections:
- *   1. Header        (top bar)
- *   2. AssetsLibrary (left sidebar)
- *   3. DiagramCanvas (canvas + right properties panel)
- */
 export default function App() {
-  const [activeTab, setActiveTab] = useState("Design");
-  const [nodes, setNodes] = useState([]); // Start with empty canvas
+  const [activeTab, setActiveTab] = useState();
+  const [nodes, setNodes] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [nodeProperties, setNodeProperties] = useState({});
+
+  const handlePropertySave = ({ nodeId, properties }) => {
+    setNodeProperties((prev) => ({ ...prev, [nodeId]: properties }));
+  };
+
+  const handleLoadWorkflow = (restoredNodes, restoredConnections) => {
+    setNodes(restoredNodes);
+    setConnections(restoredConnections);
+    setNodeProperties({});
+  };
 
   return (
     <div className="app">
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        nodes={nodes}
+        connections={connections}
+        nodeProperties={nodeProperties}
+        onLoadWorkflow={handleLoadWorkflow}
       />
       <div className="main-layout">
         <AssetsLibrary />
-        <DiagramCanvas nodes={nodes} setNodes={setNodes} />
+        <DiagramCanvas
+          nodes={nodes}
+          setNodes={setNodes}
+          connections={connections}
+          setConnections={setConnections}
+          onPropertySave={handlePropertySave}
+          onLoadWorkflow={handleLoadWorkflow}
+        />
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import ArchNode from "./ArchNode.jsx";
 import Property from "./Property.jsx";
+import { loadWorkflowData } from "../data/savedata.js";
 
-export default function DiagramCanvas({ nodes, setNodes, connections, setConnections, onPropertySave }) {
+export default function DiagramCanvas({ nodes, setNodes, connections, setConnections, onPropertySave, onLoadWorkflow }) {
   const [selectedNodeId, setSelectedId] = useState(null);
   const [dragging, setDragging] = useState(null);
-  // ← REMOVED: const [connections, setConnections] = useState([]); — now comes from App.jsx props
   const [toast, setToast] = useState(null);
   const [selectedNodeForProps, setSelectedNodeForProps] = useState(null);
   const [connectingFromId, setConnectingFromId] = useState(null);
@@ -279,6 +279,45 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
     URL.revokeObjectURL(url);
   };
 
+  // ── Load workflow from savedata.js
+  const handleLoadExistingWorkflow = () => {
+  const workflow = loadWorkflowData();
+
+  if (!workflow) {
+    showToast("No saved workflow found. Build and save one first.", "warning");
+    return;
+  }
+
+  // Restore nodes
+  const restoredNodes = workflow.nodes.map((n) => ({
+    id: typeof n.id === "string" && !isNaN(n.id) ? Number(n.id) : n.id,
+    title: n.title,
+    icon: n.icon,
+    iconType: n.iconType || "img",
+    color: n.color,
+    iconColor: n.iconColor,
+    svgType: n.svgType || "svg1",
+    assetId: n.assetId,
+    category: n.category,
+    allowedTargets: n.allowedTargets || [],
+    requiredBefore: n.requiredBefore || [],
+    maxOutgoing: n.maxOutgoing,
+    x: n.x,
+    y: n.y,
+    status: n.status || "Running",
+  }));
+
+  // Restore connections — savedata.js stores as { from, to }
+  const restoredConnections = (workflow.connections || []).map((e) => ({
+    from: typeof e.from === "string" && !isNaN(e.from) ? Number(e.from) : e.from,
+    to: typeof e.to === "string" && !isNaN(e.to) ? Number(e.to) : e.to,
+  }));
+
+  setNodes(restoredNodes);
+  setConnections(restoredConnections);
+  showToast(`✅ Workflow restored! ${restoredNodes.length} nodes, ${restoredConnections.length} connections.`, "success");
+};
+
   return (
     <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: "column" }}>
 
@@ -316,15 +355,35 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         </div>
       )}
 
+      {/* ── Toolbar bar with Existing Workflow + Export JSON */}
       <div style={{
         padding: "8px 16px", borderBottom: "1px solid #2a2a3d",
         display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14",
       }}>
-        <button onClick={exportCanvasAsJSON} style={{
-          marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
-          background: "#4f8ef7", color: "white", border: "none",
-          borderRadius: "4px", cursor: "pointer",
-        }}>
+        {/* Existing Workflow button */}
+        <button
+          onClick={handleLoadExistingWorkflow}
+          style={{
+            padding: "4px 12px", fontSize: "11px",
+            background: "transparent", color: "#a78bfa",
+            border: "1px solid #7c6af7",
+            borderRadius: "4px", cursor: "pointer",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "rgba(124,106,247,0.1)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+        >
+        Existing Workflow
+        </button>
+
+        {/* Export JSON button */}
+        <button
+          onClick={exportCanvasAsJSON}
+          style={{
+            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
+            background: "#4f8ef7", color: "white", border: "none",
+            borderRadius: "4px", cursor: "pointer",
+          }}
+        >
           Export JSON
         </button>
       </div>
@@ -378,7 +437,6 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         </div>
       </div>
 
-      {/* UPDATED — passes onPropertySave back to App.jsx */}
       <Property
         node={selectedNodeForProps}
         onClose={() => setSelectedNodeForProps(null)}

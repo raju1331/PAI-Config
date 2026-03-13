@@ -10,15 +10,27 @@ export default function App() {
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
   const [nodeProperties, setNodeProperties] = useState({});
+  const [currentWorkflowName, setCurrentWorkflowName] = useState("Untitled");
 
   const handlePropertySave = ({ nodeId, properties }) => {
     setNodeProperties((prev) => ({ ...prev, [nodeId]: properties }));
   };
 
-  const handleLoadWorkflow = (restoredNodes, restoredConnections) => {
+  const handleLoadWorkflow = (restoredNodes, restoredConnections, workflowName) => {
     setNodes(restoredNodes);
     setConnections(restoredConnections);
     setNodeProperties({});
+    // Blank canvas → Untitled, else use saved name
+    setCurrentWorkflowName(
+      restoredNodes.length === 0 ? "Untitled" : (workflowName || "Untitled")
+    );
+  };
+
+  const handleClearCanvas = () => {
+    setNodes([]);
+    setConnections([]);
+    setNodeProperties({});
+    setCurrentWorkflowName("Untitled");
   };
 
   return (
@@ -30,6 +42,9 @@ export default function App() {
         connections={connections}
         nodeProperties={nodeProperties}
         onLoadWorkflow={handleLoadWorkflow}
+        onClearCanvas={handleClearCanvas}
+        currentWorkflowName={currentWorkflowName}
+        onWorkflowNameChange={setCurrentWorkflowName}
       />
       <div className="main-layout">
         <AssetsLibrary />

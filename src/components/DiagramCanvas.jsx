@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import ArchNode from "./ArchNode.jsx";
 import Property from "./Property.jsx";
 import { loadWorkflowData } from "../data/savedata.js";
+import zoomInIcon from "../assets/zoomin.svg";
+import zoomOutIcon from "../assets/zoomout.svg";
 
 export default function DiagramCanvas({ nodes, setNodes, connections, setConnections, onPropertySave, onLoadWorkflow }) {
   const [selectedNodeId, setSelectedId] = useState(null);
@@ -10,6 +12,7 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
   const [selectedNodeForProps, setSelectedNodeForProps] = useState(null);
   const [connectingFromId, setConnectingFromId] = useState(null);
   const [dragConnection, setDragConnection] = useState(null);
+  const [zoom, setZoom] = useState(1);
 
   const canvasRef = useRef(null);
   const draggingRef = useRef(null);
@@ -27,7 +30,7 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         setNodes((prev) =>
           prev.map((n) =>
             n.id === nodeId
-              ? { ...n, x: e.clientX - offsetX, y: e.clientY - offsetY }
+              ? { ...n, x: (e.clientX - offsetX) / zoom, y: (e.clientY - offsetY) / zoom }
               : n
           )
         );
@@ -37,8 +40,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         if (!rect) return;
         const updated = {
           ...dragConnectionRef.current,
-          mouseX: e.clientX - rect.left,
-          mouseY: e.clientY - rect.top,
+          mouseX: (e.clientX - rect.left) / zoom,
+          mouseY: (e.clientY - rect.top) / zoom,
         };
         dragConnectionRef.current = updated;
         setDragConnection({ ...updated });
@@ -52,8 +55,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
       if (dragConnectionRef.current) {
         const rect = canvasRef.current?.getBoundingClientRect();
         if (rect) {
-          const mx = e.clientX - rect.left;
-          const my = e.clientY - rect.top;
+          const mx = (e.clientX - rect.left) / zoom;
+          const my = (e.clientY - rect.top) / zoom;
           const sizes = {
             svg1: { w: 88, h: 88 }, svg2: { w: 149, h: 90 },
             svg3: { w: 80, h: 80 }, svg4: { w: 64, h: 40 },
@@ -100,7 +103,7 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
     };
-  }, [setNodes, setConnections]);
+  }, [setNodes, setConnections, zoom]);
 
   const handleNodeDoubleClick = (node) => setSelectedNodeForProps(node);
 
@@ -121,7 +124,7 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
     e.stopPropagation();
     setSelectedId(nodeId);
     const node = nodes.find((n) => n.id === nodeId);
-    const d = { nodeId, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y };
+    const d = { nodeId, offsetX: e.clientX - node.x * zoom, offsetY: e.clientY - node.y * zoom };
     draggingRef.current = d;
     setDragging(d);
   };
@@ -141,8 +144,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
       if (data.type === "asset") {
         const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
         const newNodeId = Math.max(...nodes.map(n => typeof n.id === "number" ? n.id : 0), 0) + 1;
         setNodes((prev) => [...prev, {
           id: newNodeId,
@@ -199,8 +202,6 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
   const handlePortDragStart = (nodeId, e) => {
     e.stopPropagation();
     e.preventDefault();
-    const clientX = e.clientX;
-    const clientY = e.clientY;
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     const node = nodesRef.current.find((n) => n.id === nodeId);
@@ -214,8 +215,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
       fromId: nodeId,
       fromX: node.x + s.w / 2,
       fromY: node.y + s.h,
-      mouseX: clientX - rect.left,
-      mouseY: clientY - rect.top,
+      mouseX: (e.clientX - rect.left) / zoom,
+      mouseY: (e.clientY - rect.top) / zoom,
     };
     dragConnectionRef.current = dc;
     setDragConnection(dc);
@@ -279,44 +280,38 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
     URL.revokeObjectURL(url);
   };
 
-  // ── Load workflow from savedata.js
   const handleLoadExistingWorkflow = () => {
-  const workflow = loadWorkflowData();
-
-  if (!workflow) {
-    showToast("No saved workflow found. Build and save one first.", "warning");
-    return;
-  }
-
-  // Restore nodes
-  const restoredNodes = workflow.nodes.map((n) => ({
-    id: typeof n.id === "string" && !isNaN(n.id) ? Number(n.id) : n.id,
-    title: n.title,
-    icon: n.icon,
-    iconType: n.iconType || "img",
-    color: n.color,
-    iconColor: n.iconColor,
-    svgType: n.svgType || "svg1",
-    assetId: n.assetId,
-    category: n.category,
-    allowedTargets: n.allowedTargets || [],
-    requiredBefore: n.requiredBefore || [],
-    maxOutgoing: n.maxOutgoing,
-    x: n.x,
-    y: n.y,
-    status: n.status || "Running",
-  }));
-
-  // Restore connections — savedata.js stores as { from, to }
-  const restoredConnections = (workflow.connections || []).map((e) => ({
-    from: typeof e.from === "string" && !isNaN(e.from) ? Number(e.from) : e.from,
-    to: typeof e.to === "string" && !isNaN(e.to) ? Number(e.to) : e.to,
-  }));
-
-  setNodes(restoredNodes);
-  setConnections(restoredConnections);
-  showToast(`✅ Workflow restored! ${restoredNodes.length} nodes, ${restoredConnections.length} connections.`, "success");
-};
+    const workflow = loadWorkflowData();
+    if (!workflow) {
+      showToast("No saved workflow found. Build and save one first.", "warning");
+      return;
+    }
+    const restoredNodes = workflow.nodes.map((n) => ({
+      id: typeof n.id === "string" && !isNaN(n.id) ? Number(n.id) : n.id,
+      title: n.title,
+      icon: n.icon,
+      iconType: n.iconType || "img",
+      color: n.color,
+      iconColor: n.iconColor,
+      svgType: n.svgType || "svg1",
+      assetId: n.assetId,
+      category: n.category,
+      allowedTargets: n.allowedTargets || [],
+      requiredBefore: n.requiredBefore || [],
+      maxOutgoing: n.maxOutgoing,
+      x: n.x,
+      y: n.y,
+      status: n.status || "Running",
+    }));
+    const restoredConnections = (workflow.connections || []).map((e) => ({
+      from: typeof e.from === "string" && !isNaN(e.from) ? Number(e.from) : e.from,
+      to: typeof e.to === "string" && !isNaN(e.to) ? Number(e.to) : e.to,
+    }));
+    setNodes(restoredNodes);
+    setConnections(restoredConnections);
+    onLoadWorkflow?.(restoredNodes, restoredConnections, workflow.workflowName || workflow.name || "Untitled");
+    showToast(`✅ Workflow restored! ${restoredNodes.length} nodes, ${restoredConnections.length} connections.`, "success");
+  };
 
   return (
     <div style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: "column" }}>
@@ -355,12 +350,11 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         </div>
       )}
 
-      {/* ── Toolbar bar with Existing Workflow + Export JSON */}
+      {/* Toolbar */}
       <div style={{
         padding: "8px 16px", borderBottom: "1px solid #2a2a3d",
         display: "flex", gap: "8px", alignItems: "center", background: "#0d0d14",
       }}>
-        {/* Existing Workflow button */}
         <button
           onClick={handleLoadExistingWorkflow}
           style={{
@@ -372,14 +366,17 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           onMouseEnter={(e) => e.currentTarget.style.background = "rgba(124,106,247,0.1)"}
           onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
         >
-        Existing Workflow
+          Existing Workflow
         </button>
 
-        {/* Export JSON button */}
+        <span style={{ marginLeft: "auto", color: "#4b5563", fontSize: "11px" }}>
+          {Math.round(zoom * 100)}%
+        </span>
+
         <button
           onClick={exportCanvasAsJSON}
           style={{
-            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
+            padding: "4px 12px", fontSize: "11px",
             background: "#4f8ef7", color: "white", border: "none",
             borderRadius: "4px", cursor: "pointer",
           }}
@@ -388,7 +385,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         </button>
       </div>
 
-      <div className="canvas-area" style={{ flex: 1 }}>
+      {/* Canvas area */}
+      <div className="canvas-area" style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <div
           ref={canvasRef}
           className="canvas-wrapper"
@@ -396,16 +394,50 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           style={{
-            position: "relative", width: "100%", height: "100%", minHeight: "600px",
+            position: "absolute",
+            top: 0, left: 0,
+            width: `${100 / zoom}%`,
+            height: `${100 / zoom}%`,
+            minHeight: "600px",
             cursor: dragConnection ? "crosshair" : "default",
             userSelect: "none",
+            transform: `scale(${zoom})`,
+            transformOrigin: "top left",
           }}
         >
+          {/* Empty state */}
           {nodes.length === 0 && (
-            <div className="canvas-empty">
-              <div className="canvas-empty__icon">🗺️</div>
-              <p className="canvas-empty__text">Your canvas is empty</p>
-              <p className="canvas-empty__sub">Drag assets from the left panel to begin</p>
+            <div style={{
+              position: "absolute", inset: 0,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: "12px", pointerEvents: "none",
+            }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+                <path d="M9 21V9"/>
+              </svg>
+              <p style={{ color: "#6b7280", fontSize: "14px", margin: 0 }}>
+                Drag and drop items here to configure
+              </p>
+              <button
+                onClick={handleLoadExistingWorkflow}
+                style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  background: "transparent", border: "none",
+                  color: "#6b7280", fontSize: "13px", cursor: "pointer",
+                  pointerEvents: "all",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "#a78bfa"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                Use an existing template
+              </button>
             </div>
           )}
 
@@ -434,6 +466,40 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
               onPortDragStart={handlePortDragStart}
             />
           ))}
+        </div>
+
+        {/* Zoom buttons */}
+        <div style={{
+          position: "absolute", bottom: "24px", right: "24px",
+          display: "flex", flexDirection: "column", gap: "4px",
+          zIndex: 10,
+        }}>
+          <button
+            onClick={() => setZoom((z) => Math.min(+(z + 0.1).toFixed(1), 2))}
+            style={{
+              width: "32px", height: "32px",
+              background: "#1e293b", border: "1px solid #2a2a3d",
+              borderRadius: "6px", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = "#7c6af7"}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = "#2a2a3d"}
+          >
+            <img src={zoomInIcon} alt="Zoom In" width="16" height="16" />
+          </button>
+          <button
+            onClick={() => setZoom((z) => Math.max(+(z - 0.1).toFixed(1), 0.3))}
+            style={{
+              width: "32px", height: "32px",
+              background: "#1e293b", border: "1px solid #2a2a3d",
+              borderRadius: "6px", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = "#7c6af7"}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = "#2a2a3d"}
+          >
+            <img src={zoomOutIcon} alt="Zoom Out" width="16" height="16" />
+          </button>
         </div>
       </div>
 

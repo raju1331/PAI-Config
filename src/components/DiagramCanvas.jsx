@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ArchNode from "./ArchNode.jsx";
 import Property from "./Property.jsx";
-import { loadWorkflowData } from "../data/savedata.js";
+import { getWorkflowOptions } from "../data/savedata.js";
 import zoomInIcon from "../assets/zoomin.svg";
 import zoomOutIcon from "../assets/zoomout.svg";
 
@@ -13,6 +13,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
   const [connectingFromId, setConnectingFromId] = useState(null);
   const [dragConnection, setDragConnection] = useState(null);
   const [zoom, setZoom] = useState(1);
+  const [showWorkflowPicker, setShowWorkflowPicker] = useState(false);
+  const [workflowOptions, setWorkflowOptions] = useState({ last: null, secondLast: null });
 
   const canvasRef = useRef(null);
   const draggingRef = useRef(null);
@@ -160,6 +162,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           assetId: data.asset.id,
           allowedTargets: data.asset.allowedTargets,
           requiredBefore: data.asset.requiredBefore,
+          width: data.asset.width || 88,
+          height: data.asset.height || 88,
         }]);
       }
     } catch (error) {
@@ -224,19 +228,37 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
 
   const drawConnections = () => {
     const paths = [];
+
+    const getNodeRadius = (node) => {
+      if (node.radius) return node.radius;
+      if (node.shape === "circle") return 30;
+      if (node.shape === "hex") return 44;
+      return 40;
+    };
+
+    const getNodeCenter = (node) => {
+      const r = getNodeRadius(node);
+      return { x: node.x + r, y: node.y + r };
+    };
+
     connections.forEach((conn, i) => {
       const fromNode = nodes.find((n) => n.id === conn.from);
       const toNode = nodes.find((n) => n.id === conn.to);
       if (!fromNode || !toNode) return;
-      const x1 = fromNode.x + 44, y1 = fromNode.y + 44;
-      const x2 = toNode.x + 44, y2 = toNode.y + 44;
-      const angle = Math.atan2(y2 - y1, x2 - x1);
-      const radius = 44;
-      const startX = x1 + Math.cos(angle) * radius;
-      const startY = y1 + Math.sin(angle) * radius;
-      const endX = x2 - Math.cos(angle) * radius;
-      const endY = y2 - Math.sin(angle) * radius;
+
+      const r1 = getNodeRadius(fromNode);
+      const r2 = getNodeRadius(toNode);
+      const c1 = getNodeCenter(fromNode);
+      const c2 = getNodeCenter(toNode);
+      const angle = Math.atan2(c2.y - c1.y, c2.x - c1.x);
+
+      const startX = c1.x + Math.cos(angle) * r1;
+      const startY = c1.y + Math.sin(angle) * r1;
+      const endX = c2.x - Math.cos(angle) * r2;
+      const endY = c2.y - Math.sin(angle) * r2;
+
       const isDotted = isAIAgentNode(conn.from) || isAIAgentNode(conn.to);
+
       paths.push(
         <g key={`conn-${i}`}>
           <circle cx={startX} cy={startY} r="4" fill="#7c6af7" />
@@ -268,24 +290,21 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
     return paths;
   };
 
-  const exportCanvasAsJSON = () => {
-    const blob = new Blob([JSON.stringify(getCanvasData(), null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `canvas-export-${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
+  // ── Show picker with 2 workflow options
   const handleLoadExistingWorkflow = () => {
-    const workflow = loadWorkflowData();
-    if (!workflow) {
-      showToast("No saved workflow found. Build and save one first.", "warning");
+    const options = getWorkflowOptions();
+    if (!options.last && !options.secondLast) {
+      showToast("No saved workflows found. Build and save one first.", "warning");
       return;
     }
+    setWorkflowOptions(options);
+    setShowWorkflowPicker(true);
+  };
+
+  // ── Restore selected workflow
+  const handlePickWorkflow = (workflow) => {
+    if (!workflow) return;
+
     const restoredNodes = workflow.nodes.map((n) => ({
       id: typeof n.id === "string" && !isNaN(n.id) ? Number(n.id) : n.id,
       title: n.title,
@@ -299,18 +318,23 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
       allowedTargets: n.allowedTargets || [],
       requiredBefore: n.requiredBefore || [],
       maxOutgoing: n.maxOutgoing,
+      width: n.width || 88,
+      height: n.height || 88,
       x: n.x,
       y: n.y,
       status: n.status || "Running",
     }));
+
     const restoredConnections = (workflow.connections || []).map((e) => ({
       from: typeof e.from === "string" && !isNaN(e.from) ? Number(e.from) : e.from,
       to: typeof e.to === "string" && !isNaN(e.to) ? Number(e.to) : e.to,
     }));
+
     setNodes(restoredNodes);
     setConnections(restoredConnections);
-    onLoadWorkflow?.(restoredNodes, restoredConnections, workflow.workflowName || workflow.name || "Untitled");
-    showToast(`✅ Workflow restored! ${restoredNodes.length} nodes, ${restoredConnections.length} connections.`, "success");
+    setShowWorkflowPicker(false);
+    onLoadWorkflow?.(restoredNodes, restoredConnections, workflow.name || "Untitled Prompt");
+    showToast(`✅ "${workflow.name || "Untitled Prompt"}" restored!`, "success");
   };
 
   return (
@@ -350,6 +374,108 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         </div>
       )}
 
+      {/* ── Workflow Picker Popup */}
+      {showWorkflowPicker && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowWorkflowPicker(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 8000,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <div style={{
+            background: "#13131f", border: "1px solid #2a2a3d",
+            borderRadius: "12px", padding: "24px",
+            width: "400px", maxWidth: "90vw",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h3 style={{ color: "#e2e8f0", fontSize: "15px", fontWeight: "600", margin: 0 }}>
+                Load Existing Workflow
+              </h3>
+              <button
+                onClick={() => setShowWorkflowPicker(false)}
+                style={{ background: "transparent", border: "none", color: "#6b7280", cursor: "pointer", fontSize: "18px" }}
+              >✕</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+
+              {/* Last Workflow */}
+              {workflowOptions.last ? (
+                <div
+                  onClick={() => handlePickWorkflow(workflowOptions.last)}
+                  style={{
+                    padding: "14px 16px", background: "#1a1a2e",
+                    border: "1px solid #2a2a3d", borderRadius: "8px", cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = "#7c6af7"}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = "#2a2a3d"}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <p style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: "600", margin: "0 0 4px" }}>
+                        {workflowOptions.last.name || "Untitled Prompt"}
+                      </p>
+                      <p style={{ color: "#4b5563", fontSize: "11px", margin: 0 }}>
+                        {workflowOptions.last.nodes?.length || 0} nodes · {workflowOptions.last.connections?.length || 0} connections
+                      </p>
+                      <p style={{ color: "#4b5563", fontSize: "11px", margin: "2px 0 0" }}>
+                        {new Date(workflowOptions.last.savedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span style={{
+                      padding: "2px 10px", borderRadius: "20px",
+                      background: "rgba(124,106,247,0.15)", color: "#a78bfa", fontSize: "11px",
+                    }}>Latest</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "14px 16px", background: "#1a1a2e", border: "1px solid #2a2a3d", borderRadius: "8px", opacity: 0.4 }}>
+                  <p style={{ color: "#6b7280", fontSize: "13px", margin: 0 }}>No last workflow saved</p>
+                </div>
+              )}
+
+              {/* Second Last Workflow */}
+              {workflowOptions.secondLast ? (
+                <div
+                  onClick={() => handlePickWorkflow(workflowOptions.secondLast)}
+                  style={{
+                    padding: "14px 16px", background: "#1a1a2e",
+                    border: "1px solid #2a2a3d", borderRadius: "8px", cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.borderColor = "#7c6af7"}
+                  onMouseLeave={(e) => e.currentTarget.style.borderColor = "#2a2a3d"}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <p style={{ color: "#e2e8f0", fontSize: "13px", fontWeight: "600", margin: "0 0 4px" }}>
+                        {workflowOptions.secondLast.name || "Untitled Prompt"}
+                      </p>
+                      <p style={{ color: "#4b5563", fontSize: "11px", margin: 0 }}>
+                        {workflowOptions.secondLast.nodes?.length || 0} nodes · {workflowOptions.secondLast.connections?.length || 0} connections
+                      </p>
+                      <p style={{ color: "#4b5563", fontSize: "11px", margin: "2px 0 0" }}>
+                        {new Date(workflowOptions.secondLast.savedAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span style={{
+                      padding: "2px 10px", borderRadius: "20px",
+                      background: "rgba(75,85,99,0.3)", color: "#6b7280", fontSize: "11px",
+                    }}>Previous</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ padding: "14px 16px", background: "#1a1a2e", border: "1px solid #2a2a3d", borderRadius: "8px", opacity: 0.4 }}>
+                  <p style={{ color: "#6b7280", fontSize: "13px", margin: 0 }}>No previous workflow saved</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div style={{
         padding: "8px 16px", borderBottom: "1px solid #2a2a3d",
@@ -358,30 +484,14 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
         <button
           onClick={handleLoadExistingWorkflow}
           style={{
-            padding: "4px 12px", fontSize: "11px",
+            marginLeft: "auto", padding: "4px 12px", fontSize: "11px",
             background: "transparent", color: "#a78bfa",
-            border: "1px solid #7c6af7",
-            borderRadius: "4px", cursor: "pointer",
+            border: "1px solid #7c6af7", borderRadius: "4px", cursor: "pointer",
           }}
           onMouseEnter={(e) => e.currentTarget.style.background = "rgba(124,106,247,0.1)"}
           onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
         >
           Existing Workflow
-        </button>
-
-        <span style={{ marginLeft: "auto", color: "#4b5563", fontSize: "11px" }}>
-          {Math.round(zoom * 100)}%
-        </span>
-
-        <button
-          onClick={exportCanvasAsJSON}
-          style={{
-            padding: "4px 12px", fontSize: "11px",
-            background: "#4f8ef7", color: "white", border: "none",
-            borderRadius: "4px", cursor: "pointer",
-          }}
-        >
-          Export JSON
         </button>
       </div>
 
@@ -394,10 +504,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           style={{
-            position: "absolute",
-            top: 0, left: 0,
-            width: `${100 / zoom}%`,
-            height: `${100 / zoom}%`,
+            position: "absolute", top: 0, left: 0,
+            width: `${100 / zoom}%`, height: `${100 / zoom}%`,
             minHeight: "600px",
             cursor: dragConnection ? "crosshair" : "default",
             userSelect: "none",
@@ -405,7 +513,6 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
             transformOrigin: "top left",
           }}
         >
-          {/* Empty state */}
           {nodes.length === 0 && (
             <div style={{
               position: "absolute", inset: 0,
@@ -470,8 +577,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
 
         {/* Zoom buttons */}
         <div style={{
-          position: "absolute", bottom: "24px", right: "24px",
-          display: "flex", flexDirection: "column", gap: "4px",
+          position: "absolute", bottom: "100px", right: "24px",
+          display: "flex", flexDirection: "column", gap: "4px", alignItems: "center",
           zIndex: 10,
         }}>
           <button
@@ -500,6 +607,9 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           >
             <img src={zoomOutIcon} alt="Zoom Out" width="16" height="16" />
           </button>
+          <span style={{ color: "#6b7280", fontSize: "11px", marginTop: "2px", textAlign: "center" }}>
+            {Math.round(zoom * 100)}%
+          </span>
         </div>
       </div>
 

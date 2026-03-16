@@ -5,7 +5,7 @@ import sidebarIcon from "../assets/iconoir_sidebar-collapse.svg";
 import backIcon from "../assets/lsicon_left-filled.svg";
 import { saveWorkflowData } from "../data/savedata.js";
 
-export default function Header({ activeTab, onTabChange, nodes = [], connections = [], nodeProperties = {}, onLoadWorkflow, onClearCanvas, currentWorkflowName, onWorkflowNameChange }) {
+export default function Header({ activeTab, onTabChange, nodes = [], connections = [], nodeProperties = {}, onLoadWorkflow, onClearCanvas, currentWorkflowName, onWorkflowNameChange, onLaunch }) {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
@@ -58,15 +58,16 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
       })),
     };
 
-    // Save to localStorage
-    saveWorkflowData(nodes, connections, nodeProperties);
+    // ── Save to localStorage with workflow name
+    saveWorkflowData(nodes, connections, nodeProperties, workflowName.trim());
 
-    // ── Close popup + update name immediately
+    // Close popup + update name immediately
     onWorkflowNameChange?.(workflowName.trim());
     setShowPopup(false);
     showToast("Saving workflow...", "success");
 
-    // ── Save to backend in background
+    // Save to backend in background
+    setSaving(true);
     try {
       const res = await fetch("http://localhost:5000/api/workflow/save", {
         method: "POST",
@@ -78,6 +79,8 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
       showToast("Workflow saved successfully!", "success");
     } catch (err) {
       showToast(err.message || "Failed to save.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -124,7 +127,6 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
             width: "460px", maxWidth: "90vw",
             boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
           }}>
-            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
               <h3 style={{ color: "#e2e8f0", fontSize: "16px", fontWeight: "600", margin: 0 }}>
                 Save Workflow
@@ -135,7 +137,6 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
               </button>
             </div>
 
-            {/* Workflow Name */}
             <div style={{ marginBottom: "16px" }}>
               <label style={{ color: "#9ca3af", fontSize: "12px", display: "block", marginBottom: "6px" }}>
                 Workflow Name *
@@ -158,7 +159,6 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
               />
             </div>
 
-            {/* Description */}
             <div style={{ marginBottom: "24px" }}>
               <label style={{ color: "#9ca3af", fontSize: "12px", display: "block", marginBottom: "6px" }}>
                 Description
@@ -180,22 +180,7 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
               />
             </div>
 
-            {/* Buttons */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              {/* Delete Canvas */}
-              {/* <button
-                onClick={handleDeleteCanvas}
-                style={{
-                  padding: "8px 18px", background: "transparent",
-                  color: "#fc8181", border: "1px solid #fc8181",
-                  borderRadius: "6px", cursor: "pointer", fontSize: "13px",
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(252,129,129,0.1)"}
-                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-              >
-                🗑 Delete Canvas
-              </button> */}
-
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
               <div style={{ display: "flex", gap: "10px" }}>
                 <button
                   onClick={() => setShowPopup(false)}
@@ -207,7 +192,6 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
                 >
                   Cancel
                 </button>
-
                 <button
                   onClick={handlePopupSave}
                   disabled={saving}
@@ -221,8 +205,23 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
                     display: "flex", alignItems: "center", gap: "6px",
                   }}
                 >
-                  <img src={saveIcon} alt="Save" className="header__btn-icon" />
-                  Save
+                  {saving ? (
+                    <>
+                      <div style={{
+                        width: "12px", height: "12px",
+                        border: "2px solid rgba(255,255,255,0.3)",
+                        borderTop: "2px solid white",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                      }} />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <img src={saveIcon} alt="Save" className="header__btn-icon" />
+                      Save
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -244,16 +243,17 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
           </button>
           <div className="header__divider" />
 
-          {/* ── Workflow name on LEFT side after divider */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "12px" }}>
-  <span style={{
-    color: "#e2e8f0",
-    fontSize: "14px",
-    fontWeight: "500",
-  }}>
-    {currentWorkflowName || "Untitled"}
-  </span>
-  </div>
+            <span style={{ color: "#e2e8f0", fontSize: "14px", fontWeight: "500" }}>
+              {currentWorkflowName || "Untitled"}
+            </span>
+            <span style={{
+              padding: "2px 12px", borderRadius: "20px",
+              border: "1px solid #7c6af7", color: "#a78bfa", fontSize: "12px", fontWeight: "500",
+            }}>
+              Draft
+            </span>
+          </div>
         </div>
 
         <div className="header__actions">
@@ -265,8 +265,9 @@ export default function Header({ activeTab, onTabChange, nodes = [], connections
             <img src={saveIcon} alt="Save" className="header__btn-icon" />
             Save
           </button>
-
-          <button className="btn-primary">▶ Launch</button>
+          <button className="btn-primary" onClick={onLaunch}>
+            ▶ Launch
+          </button>
         </div>
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

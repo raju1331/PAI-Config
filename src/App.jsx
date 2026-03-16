@@ -20,10 +20,7 @@ export default function App() {
     setNodes(restoredNodes);
     setConnections(restoredConnections);
     setNodeProperties({});
-    // Blank canvas → Untitled, else use saved name
-    setCurrentWorkflowName(
-      restoredNodes.length === 0 ? "Untitled" : (workflowName || "Untitled")
-    );
+    if (workflowName) setCurrentWorkflowName(workflowName);
   };
 
   const handleClearCanvas = () => {
@@ -31,6 +28,28 @@ export default function App() {
     setConnections([]);
     setNodeProperties({});
     setCurrentWorkflowName("Untitled");
+  };
+
+  // ── Export JSON using nodes + connections directly from state
+  const handleLaunch = () => {
+    const data = {
+      workflowName: currentWorkflowName,
+      exportedAt: new Date().toISOString(),
+      nodes: nodes.map(({ id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore }) => ({
+        id, title, subtitle, icon, status, assetId, allowedTargets, requiredBefore,
+      })),
+      connections,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `workflow-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log("🚀 Workflow launched and exported.");
   };
 
   return (
@@ -45,6 +64,7 @@ export default function App() {
         onClearCanvas={handleClearCanvas}
         currentWorkflowName={currentWorkflowName}
         onWorkflowNameChange={setCurrentWorkflowName}
+        onLaunch={handleLaunch}
       />
       <div className="main-layout">
         <AssetsLibrary />

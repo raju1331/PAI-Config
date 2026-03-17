@@ -13,6 +13,7 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
   const [connectingFromId, setConnectingFromId] = useState(null);
   const [dragConnection, setDragConnection] = useState(null);
   const [zoom, setZoom] = useState(1);
+  const [validationResult, setValidationResult] = useState({});
 
   const canvasRef = useRef(null);
   const draggingRef = useRef(null);
@@ -136,9 +137,39 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
     setDragConnection(null);
   };
 
+  const validateNode = async (nodeId) => {
+  try {
+    const requestBody = { nodeId };
+    console.log("Sending validation request:", requestBody);
+    
+    const res = await fetch(
+      "http://localhost:5000/api/validate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      }
+    );
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`API Error ${res.status}: ${errorText}`);
+      throw new Error(`Node validation API failed with status ${res.status}: ${errorText}`);
+    }
+
+    const data = await res.json();
+    console.log("Node validation response:", data);
+    setValidationResult((prev) => ({ ...prev, [nodeId]: data }));
+    return data;
+  } catch (err) {
+    console.error("Node validation error:", err);
+    throw err;
+  }
+}; 
+console.log("validationResult state:", validationResult);
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     try {
       const data = JSON.parse(e.dataTransfer.getData("application/json"));
@@ -161,6 +192,8 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
           allowedTargets: data.asset.allowedTargets,
           requiredBefore: data.asset.requiredBefore,
         }]);
+
+        await validateNode(data.asset.id);
       }
     } catch (error) {
       console.error("Error parsing dropped data:", error);
@@ -177,18 +210,22 @@ export default function DiagramCanvas({ nodes, setNodes, connections, setConnect
 
   const handleConnect = (nodeId) => {
     if (connectingFromId !== null && connectingFromId !== nodeId) {
-      const fromNode = nodes.find((n) => n.id === connectingFromId);
-      const toNode = nodes.find((n) => n.id === nodeId);
+      const fromNodeData = nodes.find((n) => n.id === connectingFromId);
+      const toNodeData = nodes.find((n) => n.id === nodeId);
+      
+      const fromNode = validationResult[fromNodeData?.assetId];
+      const toNode = validationResult[toNodeData?.assetId];
+      
       const exists = connections.some((conn) => conn.from === connectingFromId && conn.to === nodeId);
-      const allowedTargets = fromNode?.allowedTargets || [];
-      const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(toNode?.assetId);
+      const allowedTargets = fromNode?.allowedTargets || fromNodeData?.allowedTargets || [];
+      const isAllowed = allowedTargets.length === 0 || allowedTargets.includes(toNodeData?.assetId);
 
       if (!exists && isAllowed) {
         setConnections((prev) => [...prev, { from: connectingFromId, to: nodeId }]);
       } else if (exists) {
         showToast("Connection already exists.", "warning");
       } else if (!isAllowed) {
-        showToast(`${fromNode?.title} cannot connect to ${toNode?.title}.`, "warning");
+        showToast(`${fromNodeData?.title} cannot connect to ${toNodeData?.title}.`, "warning");
       }
       setConnectingFromId(null);
     }
